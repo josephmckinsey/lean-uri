@@ -284,4 +284,122 @@ def uri : Parser URI := do
     fragment := fragPart
   }
 
+/-! ## Relative References (RFC 3986 Section 4.2) -/
+
+/-- A relative reference (without scheme) -/
+structure RelativeRef where
+  authority : Option String
+  path : String
+  query : Option String
+  fragment : Option String
+  deriving Repr
+
+/-- relative-part = "//" authority path-abempty / path-absolute / path-noscheme / path-empty -/
+def relativePart : Parser (Option String × String) :=
+  (do
+    skipString "//"
+    let auth ← authority
+    let p ← pathAbempty
+    return (some auth, p))
+  <|> (do
+    let p ← pathAbsolute
+    return (none, p))
+  <|> (do
+    let p ← pathNoscheme
+    return (none, p))
+  <|> (do
+    let p ← pathEmpty
+    return (none, p))
+
+/-- relative-ref = relative-part [ "?" query ] [ "#" fragment ] -/
+def relativeRef : Parser RelativeRef := do
+  let (auth, pathPart) ← relativePart
+  let queryPart ← (attempt (skipChar '?' *> query >>= fun q => pure (some q))) <|> pure none
+  let fragPart ← (attempt (skipChar '#' *> fragment >>= fun f => pure (some f))) <|> pure none
+
+  return {
+    authority := auth
+    path := pathPart
+    query := queryPart
+    fragment := fragPart
+  }
+
+/-! ## Reference Resolution (RFC 3986 Section 5.2) -/
+
+/-- Remove dot segments from a path (RFC 3986 Section 5.2.4) -/
+partial def removeDotSegments (input : String) (output : String := "") : String :=
+  if input.isEmpty then
+    output
+  else if input.startsWith "../" then
+    removeDotSegments (input.drop 3) output
+  else if input.startsWith "./" then
+    removeDotSegments (input.drop 2) output
+  else if input.startsWith "/./" then
+    removeDotSegments ("/" ++ input.drop 3) output
+  else if input == "/." then
+    removeDotSegments "/" output
+  else if input.startsWith "/../" then
+    -- Remove last segment from output
+    let lastSlash := output.dropRightWhile (· != '/')
+    let newOutput := if lastSlash.isEmpty then "" else lastSlash.dropRight 1
+    removeDotSegments ("/" ++ input.drop 4) newOutput
+  else if input == "/.." then
+    -- Remove last segment from output
+    let lastSlash := output.dropRightWhile (· != '/')
+    let newOutput := if lastSlash.isEmpty then "" else lastSlash.dropRight 1
+    removeDotSegments "/" newOutput
+  else if input == "." || input == ".." then
+    ""
+  else
+    -- Move the first path segment to output
+    let afterFirst := input.drop 1
+    let charsUntilSlash := afterFirst.takeWhile (· != '/')
+    let segmentEnd := charsUntilSlash.length + 1
+    let segment := input.take segmentEnd
+    removeDotSegments (input.drop segmentEnd) (output ++ segment)
+
+/-- Merge a base path with a reference path (RFC 3986 Section 5.2.3) -/
+def mergePaths (basePath : String) (refPath : String) (baseHasAuth : Bool) : String :=
+  if baseHasAuth && basePath.isEmpty then
+    "/" ++ refPath
+  else
+    let baseDir := basePath.dropRightWhile (· != '/')
+    baseDir ++ refPath
+
+/-- Resolve a relative reference against a base URI (RFC 3986 Section 5.2.2) -/
+def resolve (base : URI) (ref : RelativeRef) (strict : Bool := true) : URI :=
+  let targetScheme := base.scheme
+  let (targetAuth, targetPath, targetQuery) :=
+    match ref.authority with
+    | some auth =>
+      (some auth, removeDotSegments ref.path, ref.query)
+    | none =>
+      if ref.path.isEmpty then
+        (base.authority, base.path, ref.query.or base.query)
+      else if ref.path.startsWith "/" then
+        (base.authority, removeDotSegments ref.path, ref.query)
+      else
+        let merged := mergePaths base.path ref.path (base.authority.isSome)
+        (base.authority, removeDotSegments merged, ref.query)
+
+  {
+    scheme := targetScheme
+    authority := targetAuth
+    path := targetPath
+    query := targetQuery
+    fragment := ref.fragment
+  }
+
+/-- URI-reference = URI / relative-ref -/
+def uriReference : Parser (URI ⊕ RelativeRef) :=
+  (attempt (uri >>= fun u => pure (Sum.inl u)))
+  <|> (relativeRef >>= fun r => pure (Sum.inr r))
+
+/-- Parse and resolve a URI reference against a base URI -/
+def parseAndResolve (baseUri : URI) (reference : String) (strict : Bool := true) : Except String URI :=
+  match uriReference.run reference with
+  | .ok (Sum.inl absoluteUri) => .ok absoluteUri
+  | .ok (Sum.inr relRef) => .ok (resolve baseUri relRef strict)
+  | .error e => .error e
+
 end LeanUri

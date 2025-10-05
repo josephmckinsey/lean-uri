@@ -348,6 +348,112 @@ def testURI : IO Bool := do
 
   return allPassed
 
+-- Helper to parse base URI for resolution tests
+def parseBaseURI (baseStr : String) : IO (Option URI) := do
+  match uri.run baseStr with
+  | .ok u => pure (some u)
+  | .error e =>
+    IO.println s!"✗ Failed to parse base URI: {e}"
+    pure none
+
+-- Helper to test URI reference resolution
+def testResolve (base : URI) (name : String) (refStr : String) (expected : String) : IO Bool := do
+  match parseAndResolve base refStr with
+  | .ok result =>
+    let resultStr := toString result
+    if resultStr == expected then
+      IO.println s!"✓ {name}: '{refStr}' → {resultStr}"
+      return true
+    else
+      IO.println s!"✗ {name}: '{refStr}' → got {resultStr}, expected {expected}"
+      return false
+  | .error err =>
+    IO.println s!"✗ {name}: '{refStr}' → error: {err}"
+    return false
+
+def testRelativeResolution : IO Bool := do
+  IO.println "\n=== Testing Relative Reference Resolution (RFC 3986 Section 5.4) ==="
+
+  -- Base URI for all tests (from RFC 3986 Section 5.4)
+  let some base ← parseBaseURI "http://a/b/c/d;p?q" | return false
+  let mut allPassed := true
+
+  IO.println "\n--- Normal Examples (RFC 3986 Section 5.4.1) ---"
+
+  -- Different scheme
+  allPassed := (← testResolve base "different scheme" "g:h" "g:h") && allPassed
+
+  -- Relative path references
+  allPassed := (← testResolve base "simple relative" "g" "http://a/b/c/g") && allPassed
+  allPassed := (← testResolve base "current directory" "./g" "http://a/b/c/g") && allPassed
+  allPassed := (← testResolve base "relative directory" "g/" "http://a/b/c/g/") && allPassed
+
+  -- Absolute path reference
+  allPassed := (← testResolve base "absolute path" "/g" "http://a/g") && allPassed
+
+  -- Network-path reference
+  allPassed := (← testResolve base "network-path" "//g" "http://g") && allPassed
+
+  -- Query and fragment
+  allPassed := (← testResolve base "query replacement" "?y" "http://a/b/c/d;p?y") && allPassed
+  allPassed := (← testResolve base "relative with query" "g?y" "http://a/b/c/g?y") && allPassed
+  allPassed := (← testResolve base "fragment only" "#s" "http://a/b/c/d;p?q#s") && allPassed
+  allPassed := (← testResolve base "relative with fragment" "g#s" "http://a/b/c/g#s") && allPassed
+  allPassed := (← testResolve base "query and fragment" "g?y#s" "http://a/b/c/g?y#s") && allPassed
+
+  -- Semicolon in path
+  allPassed := (← testResolve base "semicolon segment" ";x" "http://a/b/c/;x") && allPassed
+  allPassed := (← testResolve base "relative with semicolon" "g;x" "http://a/b/c/g;x") && allPassed
+  allPassed := (← testResolve base "semicolon query fragment" "g;x?y#s" "http://a/b/c/g;x?y#s") && allPassed
+
+  -- Empty reference
+  allPassed := (← testResolve base "empty reference" "" "http://a/b/c/d;p?q") && allPassed
+
+  -- Dot segments
+  allPassed := (← testResolve base "current dir only" "." "http://a/b/c/") && allPassed
+  allPassed := (← testResolve base "current dir with slash" "./" "http://a/b/c/") && allPassed
+  allPassed := (← testResolve base "parent dir" ".." "http://a/b/") && allPassed
+  allPassed := (← testResolve base "parent dir with slash" "../" "http://a/b/") && allPassed
+  allPassed := (← testResolve base "parent then relative" "../g" "http://a/b/g") && allPassed
+  allPassed := (← testResolve base "two parents" "../.." "http://a/") && allPassed
+  allPassed := (← testResolve base "two parents with slash" "../../" "http://a/") && allPassed
+  allPassed := (← testResolve base "two parents then relative" "../../g" "http://a/g") && allPassed
+
+  IO.println "\n--- Abnormal Examples (RFC 3986 Section 5.4.2) ---"
+
+  -- Excessive parent references
+  allPassed := (← testResolve base "three parents" "../../../g" "http://a/g") && allPassed
+  allPassed := (← testResolve base "four parents" "../../../../g" "http://a/g") && allPassed
+
+  -- Dot segments in absolute paths
+  allPassed := (← testResolve base "abs with current" "/./g" "http://a/g") && allPassed
+  allPassed := (← testResolve base "abs with parent" "/../g" "http://a/g") && allPassed
+
+  -- Dot-like segments (not complete dots)
+  allPassed := (← testResolve base "dot suffix" "g." "http://a/b/c/g.") && allPassed
+  allPassed := (← testResolve base "dot prefix" ".g" "http://a/b/c/.g") && allPassed
+  allPassed := (← testResolve base "dotdot suffix" "g.." "http://a/b/c/g..") && allPassed
+  allPassed := (← testResolve base "dotdot prefix" "..g" "http://a/b/c/..g") && allPassed
+
+  -- Unnecessary dot segments
+  allPassed := (← testResolve base "unnecessary dots" "./../g" "http://a/b/g") && allPassed
+  allPassed := (← testResolve base "relative with trailing dot" "./g/." "http://a/b/c/g/") && allPassed
+  allPassed := (← testResolve base "mid-path current dir" "g/./h" "http://a/b/c/g/h") && allPassed
+  allPassed := (← testResolve base "mid-path parent dir" "g/../h" "http://a/b/c/h") && allPassed
+  allPassed := (← testResolve base "semicolon with dots 1" "g;x=1/./y" "http://a/b/c/g;x=1/y") && allPassed
+  allPassed := (← testResolve base "semicolon with dots 2" "g;x=1/../y" "http://a/b/c/y") && allPassed
+
+  -- Query and fragment with dot segments (should NOT be processed)
+  allPassed := (← testResolve base "query with dots 1" "g?y/./x" "http://a/b/c/g?y/./x") && allPassed
+  allPassed := (← testResolve base "query with dots 2" "g?y/../x" "http://a/b/c/g?y/../x") && allPassed
+  allPassed := (← testResolve base "fragment with dots 1" "g#s/./x" "http://a/b/c/g#s/./x") && allPassed
+  allPassed := (← testResolve base "fragment with dots 2" "g#s/../x" "http://a/b/c/g#s/../x") && allPassed
+
+  -- Backward compatibility (non-strict parsing)
+  allPassed := (← testResolve base "same scheme colon" "http:g" "http:g") && allPassed
+
+  return allPassed
+
 def main : IO Unit := do
   let mut allPassed := true
 
@@ -366,6 +472,7 @@ def main : IO Unit := do
   allPassed := (← testQuery) && allPassed
   allPassed := (← testFragment) && allPassed
   allPassed := (← testURI) && allPassed
+  allPassed := (← testRelativeResolution) && allPassed
 
   IO.println "\n========================="
   if allPassed then
