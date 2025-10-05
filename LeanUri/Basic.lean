@@ -97,6 +97,88 @@ def ipv4address : Parser String := do
   let o4 ← decOctet
   return s!"{o1}.{o2}.{o3}.{o4}"
 
+/-! ## IPv6 Address (RFC 3986 Section 3.2.2) -/
+
+/-- h16 = 1*4HEXDIG (16 bits of address in hexadecimal) -/
+def h16 : Parser String := do
+  let first ← hexDigit
+  let rest ← manyChars hexDigit
+  let result := first.toString ++ rest
+  if result.length > 4 then fail "h16 can have at most 4 hex digits"
+  return result
+
+/-- ls32 = ( h16 ":" h16 ) / IPv4address (least-significant 32 bits) -/
+def ls32 : Parser String :=
+  attempt (do
+    let h1 ← h16
+    skipChar ':'
+    let h2 ← h16
+    return h1 ++ ":" ++ h2)
+  <|> ipv4address
+
+/-- Helper to parse n repetitions of h16 followed by colon -/
+def h16Colon : Parser String := do
+  let h ← h16
+  skipChar ':'
+  return h ++ ":"
+
+/-- Parse exactly n h16 groups with trailing colons -/
+def nH16Colon (n : Nat) : Parser String := do
+  let parts ← List.range n |>.mapM (fun _ => h16Colon)
+  return String.join parts
+
+/-- Parse optional prefix: up to n h16 groups with colons, then one h16 without colon -/
+def optPrefix (maxGroups : Nat) : Parser String :=
+  attempt (do
+    let groups ← manyStrings (attempt (do
+      let h ← h16
+      skipChar ':'
+      let next ← peek?
+      if next == some ':' then fail "stop before ::"
+      return h ++ ":"))
+    let count := groups.toList.filter (· == ':') |>.length
+    if count > maxGroups then fail s!"too many h16 groups (max {maxGroups})"
+    let finalH16 ← h16
+    return groups ++ finalH16)
+  <|> pure ""
+
+/-- IPv6address with all 9 variations from RFC 3986 -/
+def ipv6address : Parser String :=
+  -- Variation 1: 6( h16 ":" ) ls32
+  attempt ((fun a b => a ++ b) <$> nH16Colon 6 <*> ls32)
+  -- Variation 2: "::" 5( h16 ":" ) ls32
+  <|> attempt ((fun p l => "::" ++ p ++ l) <$> (skipString "::" *> nH16Colon 5) <*> ls32)
+  -- Variation 3: [ h16 ] "::" 4( h16 ":" ) ls32
+  <|> attempt ((fun p s l => p ++ "::" ++ s ++ l) <$> (attempt h16 <|> pure "") <*> (skipString "::" *> nH16Colon 4) <*> ls32)
+  -- Variation 4: [ *1( h16 ":" ) h16 ] "::" 3( h16 ":" ) ls32
+  <|> attempt ((fun p s l => p ++ "::" ++ s ++ l) <$> optPrefix 1 <*> (skipString "::" *> nH16Colon 3) <*> ls32)
+  -- Variation 5: [ *2( h16 ":" ) h16 ] "::" 2( h16 ":" ) ls32
+  <|> attempt ((fun p s l => p ++ "::" ++ s ++ l) <$> optPrefix 2 <*> (skipString "::" *> nH16Colon 2) <*> ls32)
+  -- Variation 6: [ *3( h16 ":" ) h16 ] "::" h16 ":" ls32
+  <|> attempt ((fun p s l => p ++ "::" ++ s ++ l) <$> optPrefix 3 <*> (skipString "::" *> h16Colon) <*> ls32)
+  -- Variation 7: [ *4( h16 ":" ) h16 ] "::" ls32
+  <|> attempt ((fun p l => p ++ "::" ++ l) <$> optPrefix 4 <*> (skipString "::" *> ls32))
+  -- Variation 8: [ *5( h16 ":" ) h16 ] "::" h16
+  <|> attempt ((fun p h => p ++ "::" ++ h) <$> optPrefix 5 <*> (skipString "::" *> h16))
+  -- Variation 9: [ *6( h16 ":" ) h16 ] "::"
+  <|> ((fun p => p ++ "::") <$> optPrefix 6 <* skipString "::")
+
+def ipvFuture : Parser String := do
+  skipChar 'v'
+  let version ← manyChars hexDigit
+  if version.isEmpty then fail "IPvFuture requires at least one hex digit"
+  skipChar '.'
+  let first ← unreserved <|> subDelims <|> satisfy (· == ':')
+  let rest ← manyChars (unreserved <|> subDelims <|> satisfy (· == ':'))
+  return "v" ++ version ++ "." ++ first.toString ++ rest
+
+/-- IP-literal = "[" ( IPv6address / IPvFuture ) "]" -/
+def ipLiteral : Parser String := do
+  skipChar '['
+  let addr ← attempt ipv6address <|> attempt ipvFuture
+  skipChar ']'
+  return "[" ++ addr ++ "]"
+
 /-! ## Registered Name (RFC 3986 Section 3.2.2) -/
 
 /-- reg-name = *( unreserved / pct-encoded / sub-delims ) -/
@@ -114,10 +196,9 @@ def port : Parser String := manyChars digit
 
 /-! ## Host (RFC 3986 Section 3.2.2) -/
 
-/-- host = IP-literal / IPv4address / reg-name
-    Note: We don't support IPv6 yet, so IP-literal is omitted -/
+/-- host = IP-literal / IPv4address / reg-name -/
 def host : Parser String :=
-  attempt ipv4address <|> regName
+  attempt ipLiteral <|> attempt ipv4address <|> regName
 
 /-! ## Authority (RFC 3986 Section 3.2) -/
 
@@ -367,7 +448,7 @@ def mergePaths (basePath : String) (refPath : String) (baseHasAuth : Bool) : Str
     baseDir ++ refPath
 
 /-- Resolve a relative reference against a base URI (RFC 3986 Section 5.2.2) -/
-def resolve (base : URI) (ref : RelativeRef) (strict : Bool := true) : URI :=
+def resolve (base : URI) (ref : RelativeRef) : URI :=
   let targetScheme := base.scheme
   let (targetAuth, targetPath, targetQuery) :=
     match ref.authority with
@@ -396,10 +477,10 @@ def uriReference : Parser (URI ⊕ RelativeRef) :=
   <|> (relativeRef >>= fun r => pure (Sum.inr r))
 
 /-- Parse and resolve a URI reference against a base URI -/
-def parseAndResolve (baseUri : URI) (reference : String) (strict : Bool := true) : Except String URI :=
+def parseAndResolve (baseUri : URI) (reference : String) : Except String URI :=
   match uriReference.run reference with
   | .ok (Sum.inl absoluteUri) => .ok absoluteUri
-  | .ok (Sum.inr relRef) => .ok (resolve baseUri relRef strict)
+  | .ok (Sum.inr relRef) => .ok (resolve baseUri relRef)
   | .error e => .error e
 
 end LeanUri

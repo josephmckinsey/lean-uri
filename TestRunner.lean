@@ -127,6 +127,37 @@ def testIPv4Address : IO Bool := do
 
   return allPassed
 
+def testIPv6Address : IO Bool := do
+  IO.println "\n=== Testing IPv6address ==="
+  let mut allPassed := true
+
+  -- Full form
+  allPassed := (← testParser "full form" ipLiteral "[2001:0db8:85a3:0000:0000:8a2e:0370:7334]" "[2001:0db8:85a3:0000:0000:8a2e:0370:7334]") && allPassed
+
+  -- Compressed forms with ::
+  allPassed := (← testParser "loopback" ipLiteral "[::1]" "[::1]") && allPassed
+  allPassed := (← testParser "all zeros" ipLiteral "[::]" "[::]") && allPassed
+  allPassed := (← testParser "compressed middle" ipLiteral "[2001:db8::8a2e:370:7334]" "[2001:db8::8a2e:370:7334]") && allPassed
+  allPassed := (← testParser "compressed start" ipLiteral "[::ffff:192.0.2.1]" "[::ffff:192.0.2.1]") && allPassed
+  allPassed := (← testParser "compressed end" ipLiteral "[2001:db8::]" "[2001:db8::]") && allPassed
+
+  -- IPv4-mapped IPv6
+  allPassed := (← testParser "IPv4-mapped" ipLiteral "[::ffff:192.168.1.1]" "[::ffff:192.168.1.1]") && allPassed
+
+  -- Link-local
+  allPassed := (← testParser "link-local" ipLiteral "[fe80::1]" "[fe80::1]") && allPassed
+
+  -- Documentation examples from RFC
+  allPassed := (← testParser "RFC example 1" ipLiteral "[2001:db8::7]" "[2001:db8::7]") && allPassed
+  allPassed := (← testParser "RFC example 2" ipLiteral "[::192.0.2.128]" "[::192.0.2.128]") && allPassed
+
+  -- IPv6 in complete URIs
+  allPassed := (← testParser "http with IPv6" uri "http://[2001:db8::1]/path" "http://[2001:db8::1]/path") && allPassed
+  allPassed := (← testParser "https with IPv6 and port" uri "https://[::1]:8080/api" "https://[::1]:8080/api") && allPassed
+  allPassed := (← testParser "IPv6 with query" uri "http://[fe80::1]?key=value" "http://[fe80::1]?key=value") && allPassed
+
+  return allPassed
+
 def testRegName : IO Bool := do
   IO.println "\n=== Testing reg-name ==="
   let mut allPassed := true
@@ -464,6 +495,7 @@ def main : IO Unit := do
   allPassed := (← testScheme) && allPassed
   allPassed := (← testDecOctet) && allPassed
   allPassed := (← testIPv4Address) && allPassed
+  allPassed := (← testIPv6Address) && allPassed
   allPassed := (← testRegName) && allPassed
   allPassed := (← testPort) && allPassed
   allPassed := (← testHost) && allPassed
