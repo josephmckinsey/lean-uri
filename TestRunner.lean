@@ -29,6 +29,33 @@ def expectError {α : Type} (name : String) (parser : Parser α) (input : String
     IO.println s!"✓ {name}: '{input}' → correctly failed"
     return true
 
+/-- Test parser and ensure all input is consumed -/
+def testParserComplete {α : Type} [ToString α] (name : String) (parser : Parser α) (input : String) (expected : String) : IO Bool := do
+  let fullParser := parser <* Std.Internal.Parsec.eof
+  match fullParser.run input with
+  | .ok result =>
+    let resultStr := toString result
+    if resultStr == expected then
+      IO.println s!"✓ {name}: '{input}' → {resultStr}"
+      return true
+    else
+      IO.println s!"✗ {name}: '{input}' → got {resultStr}, expected {expected}"
+      return false
+  | .error err =>
+    IO.println s!"✗ {name}: '{input}' → parse error: {err}"
+    return false
+
+/-- Expect error when parsing complete input -/
+def expectErrorComplete {α : Type} (name : String) (parser : Parser α) (input : String) : IO Bool := do
+  let fullParser := parser <* Std.Internal.Parsec.eof
+  match fullParser.run input with
+  | .ok _ =>
+    IO.println s!"✗ {name}: '{input}' → expected error but got result"
+    return false
+  | .error _ =>
+    IO.println s!"✓ {name}: '{input}' → correctly failed"
+    return true
+
 /-! ## Tests -/
 
 def testPctEncoded : IO Bool := do
@@ -114,6 +141,70 @@ def testRegName : IO Bool := do
 
   return allPassed
 
+def testPort : IO Bool := do
+  IO.println "\n=== Testing port ==="
+  let mut allPassed := true
+
+  -- Valid ports
+  allPassed := (← testParser "http port" port "80" "80") && allPassed
+  allPassed := (← testParser "https port" port "443" "443") && allPassed
+  allPassed := (← testParser "custom port" port "8080" "8080") && allPassed
+  allPassed := (← testParser "empty port" port "" "") && allPassed
+
+  -- Invalid ports (should fail with non-digits)
+  allPassed := (← expectErrorComplete "port with letter" port "80a0") && allPassed
+  allPassed := (← expectErrorComplete "port with dash" port "80-80") && allPassed
+
+  return allPassed
+
+def testHost : IO Bool := do
+  IO.println "\n=== Testing host ==="
+  let mut allPassed := true
+
+  -- IPv4 addresses (should be parsed as IPv4)
+  allPassed := (← testParser "IPv4 localhost" host "127.0.0.1" "127.0.0.1") && allPassed
+  allPassed := (← testParser "IPv4 address" host "192.168.1.1" "192.168.1.1") && allPassed
+
+  -- Registered names
+  allPassed := (← testParser "domain" host "example.com" "example.com") && allPassed
+  allPassed := (← testParser "subdomain" host "www.example.com" "www.example.com") && allPassed
+  allPassed := (← testParser "localhost name" host "localhost" "localhost") && allPassed
+
+  -- Invalid hosts
+  -- Note: "256.0.0.1" is valid as a reg-name even though it's not a valid IPv4
+  allPassed := (← testParserComplete "looks like IPv4 but is reg-name" host "256.0.0.1" "256.0.0.1") && allPassed
+  allPassed := (← expectErrorComplete "host with space" host "exam ple.com") && allPassed
+  allPassed := (← expectErrorComplete "host with @" host "ex@mple.com") && allPassed
+
+  return allPassed
+
+def testAuthority : IO Bool := do
+  IO.println "\n=== Testing authority ==="
+  let mut allPassed := true
+
+  -- Just host
+  allPassed := (← testParser "host only" authority "example.com" "example.com") && allPassed
+
+  -- Host with port
+  allPassed := (← testParser "host:port" authority "example.com:80" "example.com:80") && allPassed
+  allPassed := (← testParser "IPv4:port" authority "127.0.0.1:8080" "127.0.0.1:8080") && allPassed
+
+  -- Userinfo with host
+  allPassed := (← testParser "user@host" authority "user@example.com" "user@example.com") && allPassed
+  allPassed := (← testParser "user:pass@host" authority "user:pass@example.com" "user:pass@example.com") && allPassed
+
+  -- Full authority
+  allPassed := (← testParser "user@host:port" authority "admin@example.com:8080" "admin@example.com:8080") && allPassed
+  allPassed := (← testParser "user:pass@host:port" authority "user:pass@localhost:3000" "user:pass@localhost:3000") && allPassed
+
+  -- Invalid authority
+  allPassed := (← expectErrorComplete "multiple @" authority "user@pass@host") && allPassed
+  -- Note: "256.0.0.1" is valid as a reg-name, so this should succeed
+  allPassed := (← testParserComplete "looks like IPv4 in authority" authority "user@256.0.0.1:80" "user@256.0.0.1:80") && allPassed
+  allPassed := (← expectErrorComplete "port with letters" authority "example.com:80a") && allPassed
+
+  return allPassed
+
 def main : IO Unit := do
   let mut allPassed := true
 
@@ -125,6 +216,9 @@ def main : IO Unit := do
   allPassed := (← testDecOctet) && allPassed
   allPassed := (← testIPv4Address) && allPassed
   allPassed := (← testRegName) && allPassed
+  allPassed := (← testPort) && allPassed
+  allPassed := (← testHost) && allPassed
+  allPassed := (← testAuthority) && allPassed
 
   IO.println "\n========================="
   if allPassed then

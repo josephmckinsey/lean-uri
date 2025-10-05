@@ -40,6 +40,10 @@ def isReserved (c : Char) : Bool :=
 
 /-! ## Basic Parsers (RFC 3986 Section 2) -/
 
+/-- Parse zero or more with a parser and accumulate the results into a string -/
+partial def manyStrings (p : Parser String) (acc : String := "") : Parser String :=
+  tryCatch p (fun s => manyStrings p (acc ++ s)) (fun _ => pure acc)
+
 /-- Parse a percent-encoded octet: pct-encoded = "%" HEXDIG HEXDIG -/
 def pctEncoded : Parser String := do
   skipChar '%'
@@ -64,14 +68,13 @@ def scheme : Parser String := do
 /-! ## User Info (RFC 3986 Section 3.2.1) -/
 
 /-- userinfo = *( unreserved / pct-encoded / sub-delims / ":" ) -/
-def userinfo : Parser String := do
-  let parts ← many (
+def userinfo : Parser String :=
+  manyStrings (
     pctEncoded
     <|> (·.toString) <$> unreserved
     <|> (·.toString) <$> subDelims
     <|> (·.toString) <$> pchar ':'
   )
-  return String.join parts.toList
 
 /-! ## IPv4 Address (RFC 3986 Section 3.2.2) -/
 
@@ -97,12 +100,35 @@ def ipv4address : Parser String := do
 /-! ## Registered Name (RFC 3986 Section 3.2.2) -/
 
 /-- reg-name = *( unreserved / pct-encoded / sub-delims ) -/
-def regName : Parser String := do
-  let parts ← many (
+def regName : Parser String :=
+  manyStrings (
     pctEncoded
     <|> (·.toString) <$> unreserved
     <|> (·.toString) <$> subDelims
   )
-  return String.join parts.toList
+
+/-! ## Port (RFC 3986 Section 3.2.3) -/
+
+/-- port = *DIGIT -/
+def port : Parser String := manyChars digit
+
+/-! ## Host (RFC 3986 Section 3.2.2) -/
+
+/-- host = IP-literal / IPv4address / reg-name
+    Note: We don't support IPv6 yet, so IP-literal is omitted -/
+def host : Parser String :=
+  attempt ipv4address <|> regName
+
+/-! ## Authority (RFC 3986 Section 3.2) -/
+
+/-- authority = [ userinfo "@" ] host [ ":" port ] -/
+def authority : Parser String := do
+  let userInfo ← (attempt (userinfo <* pchar '@')) <|> pure ""
+  let hostPart ← host
+  let portPart ← (attempt (pchar ':' *> port)) <|> pure ""
+
+  return (if userInfo.isEmpty then "" else userInfo ++ "@") ++
+    hostPart ++
+    (if portPart.isEmpty then "" else ":" ++ portPart)
 
 end LeanUri
