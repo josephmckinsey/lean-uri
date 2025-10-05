@@ -1,8 +1,3 @@
-/-
-Resolution tests for LeanUri
--/
-
-
 import LeanUri
 import UriTesting.Helpers
 

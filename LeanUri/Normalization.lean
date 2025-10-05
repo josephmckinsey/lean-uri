@@ -5,16 +5,16 @@ namespace LeanUri
 
 /-! ## Normalization (RFC 3986 Section 6.2) -/
 
-/-- Convert a hexadecimal character to its numeric value -/
-def hexCharToNat (c : Char) : Option Nat :=
+/-- Convert a hexadecimal character to its numeric value.
+    Assumes input is a valid HEXDIG (produced by the parser). -/
+def hexCharToNat (c : Char) : Nat :=
   if '0' ≤ c && c ≤ '9' then
-    some (c.toNat - '0'.toNat)
+    c.toNat - '0'.toNat
   else if 'A' ≤ c && c ≤ 'F' then
-    some (c.toNat - 'A'.toNat + 10)
-  else if 'a' ≤ c && c ≤ 'f' then
-    some (c.toNat - 'a'.toNat + 10)
+    c.toNat - 'A'.toNat + 10
   else
-    none
+    -- assume lowercase hex
+    c.toNat - 'a'.toNat + 10
 
 /-- Convert a natural number (0-15) to uppercase hexadecimal character -/
 def natToHexChar (n : Nat) : Char :=
@@ -23,11 +23,12 @@ def natToHexChar (n : Nat) : Char :=
   else
     Char.ofNat ('A'.toNat + (n - 10))
 
-/-- Decode a percent-encoded triplet to its character value -/
-def decodePercentEncoded (h1 h2 : Char) : Option Char :=
-  match hexCharToNat h1, hexCharToNat h2 with
-  | some v1, some v2 => some (Char.ofNat (v1 * 16 + v2))
-  | _, _ => none
+/-- Decode a percent-encoded triplet to its character value.
+    Assumes both hex digits are valid. -/
+def decodePercentEncoded (h1 h2 : Char) : Char :=
+  let v1 := hexCharToNat h1
+  let v2 := hexCharToNat h2
+  Char.ofNat (v1 * 16 + v2)
 
 /-! ### 6.2.2.1 Case Normalization -/
 
@@ -38,9 +39,7 @@ partial def uppercasePercentHex (s : String) (acc : String := "") : String :=
   else if s.startsWith "%" && s.length ≥ 3 then
     let h1 := s.get ⟨1⟩
     let h2 := s.get ⟨2⟩
-    let v1 := (hexCharToNat h1).getD 0
-    let v2 := (hexCharToNat h2).getD 0
-    let normalized := "%" ++ (natToHexChar v1).toString ++ (natToHexChar v2).toString
+    let normalized := "%" ++ (natToHexChar (hexCharToNat h1)).toString ++ (natToHexChar (hexCharToNat h2)).toString
     uppercasePercentHex (s.drop 3) (acc ++ normalized)
   else
     uppercasePercentHex (s.drop 1) (acc ++ (s.get ⟨0⟩).toString)
@@ -61,61 +60,52 @@ def normalizeHostLower (host : String) : String :=
     -- reg-name or IPv4 - lowercase
     host.toLower
 
-/-- Normalize an authority component (case only) -/
+/-- Normalize an authority component (case only). Assumes the input
+    is syntactically valid (e.g., bracketed IPv6, at most one '@', etc.). -/
 def normalizeAuthorityCase (auth : String) : String :=
-  -- Split authority into userinfo@host:port
   let parts := auth.splitOn "@"
   match parts with
   | [hostPort] =>
-    -- No userinfo
-    -- Check if this is an IPv6 literal (starts with [)
     if hostPort.startsWith "[" then
-      -- IPv6 literal - find the closing bracket
+      -- IPv6 literal with optional ":port" after "]"
       match hostPort.splitOn "]" with
       | ipv6 :: portPart :: _ =>
-        -- ipv6 includes the opening bracket
         let normalizedHost := normalizeHostLower (ipv6 ++ "]")
         if portPart.startsWith ":" then
           normalizedHost ++ portPart
-        else if portPart.isEmpty then
-          normalizedHost
         else
-          normalizedHost ++ portPart
+          normalizedHost
       | [ipv6] =>
-        -- No closing bracket found or no port
         normalizeHostLower (ipv6 ++ "]")
-      | _ => normalizeHostLower hostPort
+      | _ =>
+        -- unreachable with parsed input; keep as-is
+        normalizeHostLower hostPort
     else
-      -- Regular host - split by colon for port
+      -- Regular host - optional ":port"
       let hostPortParts := hostPort.splitOn ":"
       match hostPortParts with
       | [host] => normalizeHostLower host
-      | host :: port :: _ =>
-        normalizeHostLower host ++ ":" ++ port
+      | host :: port :: _ => normalizeHostLower host ++ ":" ++ port
       | [] => ""
   | userinfo :: hostPort :: _ =>
-    -- Has userinfo
     let normalizedUserinfo := uppercasePercentHex userinfo
-    -- Check if this is an IPv6 literal
     if hostPort.startsWith "[" then
       match hostPort.splitOn "]" with
       | ipv6 :: portPart :: _ =>
         let normalizedHost := normalizeHostLower (ipv6 ++ "]")
         if portPart.startsWith ":" then
           normalizedUserinfo ++ "@" ++ normalizedHost ++ portPart
-        else if portPart.isEmpty then
-          normalizedUserinfo ++ "@" ++ normalizedHost
         else
-          normalizedUserinfo ++ "@" ++ normalizedHost ++ portPart
+          normalizedUserinfo ++ "@" ++ normalizedHost
       | [ipv6] =>
         normalizedUserinfo ++ "@" ++ normalizeHostLower (ipv6 ++ "]")
-      | _ => normalizedUserinfo ++ "@" ++ normalizeHostLower hostPort
+      | _ =>
+        normalizedUserinfo ++ "@" ++ normalizeHostLower hostPort
     else
       let hostPortParts := hostPort.splitOn ":"
       match hostPortParts with
       | [host] => normalizedUserinfo ++ "@" ++ normalizeHostLower host
-      | host :: port :: _ =>
-        normalizedUserinfo ++ "@" ++ normalizeHostLower host ++ ":" ++ port
+      | host :: port :: _ => normalizedUserinfo ++ "@" ++ normalizeHostLower host ++ ":" ++ port
       | [] => normalizedUserinfo ++ "@"
   | [] => ""
 
@@ -133,24 +123,19 @@ def normalizeCase (uri : URI) : URI :=
 
 /-! ### 6.2.2.2 Percent-Encoding Normalization -/
 
-/-- Decode percent-encoded unreserved characters -/
+/-- Decode percent-encoded unreserved characters. Assumes percent triplets are valid. -/
 partial def decodeUnreserved (s : String) (acc : String := "") : String :=
   if s.isEmpty then
     acc
   else if s.startsWith "%" && s.length ≥ 3 then
     let h1 := s.get ⟨1⟩
     let h2 := s.get ⟨2⟩
-    match decodePercentEncoded h1 h2 with
-    | some c =>
-      -- If the decoded character is unreserved, use it directly
-      if isUnreserved c then
-        decodeUnreserved (s.drop 3) (acc ++ c.toString)
-      else
-        -- Otherwise, keep the percent-encoding as-is
-        decodeUnreserved (s.drop 3) (acc ++ "%" ++ h1.toString ++ h2.toString)
-    | none =>
-      -- Invalid percent-encoding, keep as-is
-      decodeUnreserved (s.drop 1) (acc ++ (s.get ⟨0⟩).toString)
+    let c := decodePercentEncoded h1 h2
+    if isUnreserved c then
+      decodeUnreserved (s.drop 3) (acc ++ c.toString)
+    else
+      -- Keep original percent-encoding (without changing case here)
+      decodeUnreserved (s.drop 3) (acc ++ "%" ++ h1.toString ++ h2.toString)
   else
     decodeUnreserved (s.drop 1) (acc ++ (s.get ⟨0⟩).toString)
 
@@ -185,7 +170,7 @@ def normalizePathSegments (uri : URI) : URI :=
     - Case normalization (6.2.2.1)
     - Percent-encoding normalization (6.2.2.2)
     - Path segment normalization (6.2.2.3) -/
-def URI.normalize (uri : URI) : URI :=
+ def URI.normalize (uri : URI) : URI :=
   uri |> normalizeCase |> normalizePathSegments |> normalizePercentEncoding
 
 end LeanUri
