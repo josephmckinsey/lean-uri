@@ -3,6 +3,7 @@ import LeanUri.Normalization
 import UriTesting.Helpers
 
 open LeanUri
+open Internal
 open Testing
 
 def testNormalization (normalizer : URI → URI) (input : String) (output : String) : Bool :=

@@ -1,7 +1,7 @@
 import LeanUri.URI
 import LeanUri.Parsers
 
-namespace LeanUri
+namespace LeanUri.Internal
 
 /-! ## Normalization (RFC 3986 Section 6.2) -/
 
@@ -165,12 +165,11 @@ def normalizePathSegments (uri : URI) : URI :=
 
 /-! ### 6.2.2 Syntax-Based Normalization -/
 
-/-- Syntax-based normalization of a URI according to RFC 3986 Section 6.2.2.
-    This combines:
+/-- This combines:
     - Case normalization (6.2.2.1)
     - Percent-encoding normalization (6.2.2.2)
     - Path segment normalization (6.2.2.3) -/
- def URI.normalize (uri : URI) : URI :=
+ def normalizeAll (uri : URI) : URI :=
   uri |> normalizeCase |> normalizePathSegments |> normalizePercentEncoding
 
-end LeanUri
+end LeanUri.Internal

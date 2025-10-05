@@ -9,6 +9,37 @@ import Std.Internal.Parsec.String
 
 namespace LeanUri
 
+structure URI where
+  scheme : String
+  authority : Option String
+  path : String
+  query : Option String
+  fragment : Option String
+deriving Repr, BEq
+
+instance : ToString URI where
+  toString uri :=
+    uri.scheme ++ ":" ++
+    (match uri.authority with
+    | some auth => "//" ++ auth
+    | none => "") ++
+    uri.path ++
+    (match uri.query with
+    | some q => "?" ++ q
+    | none => "") ++
+    (match uri.fragment with
+    | some f => "#" ++ f
+    | none => "")
+
+structure RelativeRef where
+  authority : Option String
+  path : String
+  query : Option String
+  fragment : Option String
+  deriving Repr
+
+namespace Internal
+
 open Std.Internal.Parsec
 open Std.Internal.Parsec.String
 
@@ -123,28 +154,6 @@ def fragment : Parser String :=
     <|> (·.toString) <$> satisfy (· == '?')
   )
 
-structure URI where
-  scheme : String
-  authority : Option String
-  path : String
-  query : Option String
-  fragment : Option String
-deriving Repr, BEq
-
-instance : ToString URI where
-  toString uri :=
-    uri.scheme ++ ":" ++
-    (match uri.authority with
-    | some auth => "//" ++ auth
-    | none => "") ++
-    uri.path ++
-    (match uri.query with
-    | some q => "?" ++ q
-    | none => "") ++
-    (match uri.fragment with
-    | some f => "#" ++ f
-    | none => "")
-
 /-- hier-part = "//" authority path-abempty
               / path-absolute
               / path-rootless
@@ -188,13 +197,6 @@ def uri : Parser URI := do
     query := queryPart
     fragment := fragPart
   }
-
-structure RelativeRef where
-  authority : Option String
-  path : String
-  query : Option String
-  fragment : Option String
-  deriving Repr
 
 /-- relative-part = "//" authority path-abempty / path-absolute / path-noscheme / path-empty -/
 def relativePart : Parser (Option String × String) :=
@@ -293,5 +295,7 @@ def parseAndResolve (baseUri : URI) (reference : String) : Except String URI :=
   | .ok (Sum.inl absoluteUri) => .ok absoluteUri
   | .ok (Sum.inr relRef) => .ok (resolve baseUri relRef)
   | .error e => .error e
+
+end Internal
 
 end LeanUri

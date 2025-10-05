@@ -5,7 +5,7 @@ IPv4 address parsing for URI (RFC 3986 Section 3.2.2)
 import LeanUri.Parsers
 import Std.Internal.Parsec.String
 
-namespace LeanUri
+namespace LeanUri.Internal
 
 open Std.Internal.Parsec
 open Std.Internal.Parsec.String
@@ -29,4 +29,4 @@ def ipv4address : Parser String := do
   let o4 ← decOctet
   return s!"{o1}.{o2}.{o3}.{o4}"
 
-end LeanUri
+end LeanUri.Internal

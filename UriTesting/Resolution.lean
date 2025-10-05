@@ -2,6 +2,7 @@ import LeanUri
 import UriTesting.Helpers
 
 open LeanUri
+open Internal
 open Testing
 
 /-! ## Resolution Tests -/

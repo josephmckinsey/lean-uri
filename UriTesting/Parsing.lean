@@ -3,8 +3,8 @@ import UriTesting.Helpers
 
 
 open LeanUri
+open Internal
 open Testing
-open Testing (TestM TestState test printSummary)
 
 /-! ## Parsing Tests -/
 

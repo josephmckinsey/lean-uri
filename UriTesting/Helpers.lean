@@ -1,11 +1,9 @@
 import Std.Internal.Parsec.String
 import LeanUri
 
-open LeanUri
-open Std.Internal.Parsec.String
-
 namespace Testing
 
+open Std.Internal.Parsec.String
 
 inductive TestTree where
   | test (name : String) (passed : Bool) (skipped : Bool := false) (message : Option String := none)

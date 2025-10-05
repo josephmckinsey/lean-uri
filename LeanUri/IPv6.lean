@@ -6,7 +6,7 @@ import LeanUri.Parsers
 import LeanUri.IPv4
 import Std.Internal.Parsec.String
 
-namespace LeanUri
+namespace LeanUri.Internal
 
 open Std.Internal.Parsec
 open Std.Internal.Parsec.String
@@ -91,4 +91,4 @@ def ipLiteral : Parser String := do
   skipChar ']'
   return "[" ++ addr ++ "]"
 
-end LeanUri
+end LeanUri.Internal

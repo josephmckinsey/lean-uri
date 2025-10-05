@@ -4,7 +4,7 @@ Parsers and character predicates for URI parsing (RFC 3986)
 
 import Std.Internal.Parsec.String
 
-namespace LeanUri
+namespace LeanUri.Internal
 
 open Std.Internal.Parsec
 open Std.Internal.Parsec.String
@@ -55,4 +55,4 @@ def unreserved : Parser Char := satisfy isUnreserved
 /-- sub-delims = "!" / "$" / "&" / "'" / "(" / ")" / "*" / "+" / "," / ";" / "=" -/
 def subDelims : Parser Char := satisfy isSubDelim
 
-end LeanUri
+end LeanUri.Internal
