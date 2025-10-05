@@ -1,0 +1,11 @@
+name = "lean-uri"
+version = "0.1.0"
+defaultTargets = ["LeanUri"]
+testDriver = "testURI"
+
+[[lean_lib]]
+name = "LeanUri"
+
+[[lean_exe]]
+name = "testURI"
+root = "TestRunner"
