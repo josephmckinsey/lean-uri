@@ -1,5 +1,6 @@
 import UriTesting.Parsing
 import UriTesting.Resolution
+import UriTesting.Normalization
 
 
 def main (args : List String) : IO Unit := do
@@ -23,4 +24,5 @@ def main (args : List String) : IO Unit := do
       testFragment
       testURI
     testRelativeResolution
+    allNormalizationTests
     Testing.printSummary
