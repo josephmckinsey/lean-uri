@@ -230,7 +230,7 @@ def testPath : IO Bool := do
   allPassed := (← testParserComplete "noscheme simple" pathNoscheme "foo" "foo") && allPassed
   allPassed := (← testParserComplete "noscheme multiple" pathNoscheme "foo/bar" "foo/bar") && allPassed
   allPassed := (← testParserComplete "noscheme colon in second" pathNoscheme "foo/bar:baz" "foo/bar:baz") && allPassed
-  
+
   -- Invalid paths
   allPassed := (← expectErrorComplete "noscheme with colon in first" pathNoscheme "foo:bar") && allPassed
   allPassed := (← expectErrorComplete "path with space" pathAbsolute "/foo bar") && allPassed
@@ -279,6 +279,75 @@ def testFragment : IO Bool := do
 
   return allPassed
 
+def testURI : IO Bool := do
+  IO.println "\n=== Testing complete URI ==="
+  let mut allPassed := true
+
+  -- Simple URIs
+  allPassed := (← testParserComplete "http URL" uri "http://example.com"
+    "http://example.com") && allPassed
+  allPassed := (← testParserComplete "https with path" uri "https://example.com/path"
+    "https://example.com/path") && allPassed
+  allPassed := (← testParserComplete "with port" uri "http://example.com:8080"
+    "http://example.com:8080") && allPassed
+
+  -- With query
+  allPassed := (← testParserComplete "with query" uri "http://example.com?key=value"
+    "http://example.com?key=value") && allPassed
+  allPassed := (← testParserComplete "with path and query" uri "http://example.com/path?key=value"
+    "http://example.com/path?key=value") && allPassed
+
+  -- With fragment
+  allPassed := (← testParserComplete "with fragment" uri "http://example.com#section"
+    "http://example.com#section") && allPassed
+  allPassed := (← testParserComplete "with query and fragment" uri "http://example.com?key=value#section"
+    "http://example.com?key=value#section") && allPassed
+
+  -- With authority components
+  allPassed := (← testParserComplete "with userinfo" uri "http://user@example.com/path"
+    "http://user@example.com/path") && allPassed
+  allPassed := (← testParserComplete "with user:pass" uri "ftp://user:pass@ftp.example.com/file.txt"
+    "ftp://user:pass@ftp.example.com/file.txt") && allPassed
+  allPassed := (← testParserComplete "full authority" uri "http://admin:secret@example.com:8080/admin"
+    "http://admin:secret@example.com:8080/admin") && allPassed
+
+  -- Complex URIs
+  allPassed := (← testParserComplete "complex URI" uri
+    "https://user@example.com:443/path/to/resource?query=param&foo=bar#section1"
+    "https://user@example.com:443/path/to/resource?query=param&foo=bar#section1") && allPassed
+
+  -- IPv4 addresses
+  allPassed := (← testParserComplete "IPv4 host" uri "http://192.168.1.1/path"
+    "http://192.168.1.1/path") && allPassed
+  allPassed := (← testParserComplete "localhost IP" uri "http://127.0.0.1:8080"
+    "http://127.0.0.1:8080") && allPassed
+
+  -- URIs without authority
+  allPassed := (← testParserComplete "mailto" uri "mailto:user@example.com"
+    "mailto:user@example.com") && allPassed
+  allPassed := (← testParserComplete "file scheme" uri "file:/path/to/file"
+    "file:/path/to/file") && allPassed
+  allPassed := (← testParserComplete "urn" uri "urn:isbn:0451450523"
+    "urn:isbn:0451450523") && allPassed
+
+  -- Edge cases
+  allPassed := (← testParserComplete "empty path" uri "http://example.com"
+    "http://example.com") && allPassed
+  allPassed := (← testParserComplete "root path" uri "http://example.com/"
+    "http://example.com/") && allPassed
+  allPassed := (← testParserComplete "percent-encoded in path" uri "http://example.com/hello%20world"
+    "http://example.com/hello%20world") && allPassed
+
+  -- Invalid URIs
+  allPassed := (← expectErrorComplete "missing colon" uri "http//example.com") && allPassed
+  allPassed := (← expectErrorComplete "invalid scheme start" uri "9http://example.com") && allPassed
+  allPassed := (← expectErrorComplete "space in host" uri "http://exam ple.com") && allPassed
+  allPassed := (← expectErrorComplete "space in path" uri "http://example.com/hello world") && allPassed
+  allPassed := (← expectErrorComplete "invalid port" uri "http://example.com:80a/path") && allPassed
+  allPassed := (← expectErrorComplete "multiple @" uri "http://user@pass@host/path") && allPassed
+
+  return allPassed
+
 def main : IO Unit := do
   let mut allPassed := true
 
@@ -296,6 +365,7 @@ def main : IO Unit := do
   allPassed := (← testPath) && allPassed
   allPassed := (← testQuery) && allPassed
   allPassed := (← testFragment) && allPassed
+  allPassed := (← testURI) && allPassed
 
   IO.println "\n========================="
   if allPassed then

@@ -216,4 +216,72 @@ def fragment : Parser String :=
     <|> (·.toString) <$> satisfy (· == '?')
   )
 
+/-! ## Complete URI (RFC 3986 Section 3) -/
+
+/-- Parsed URI components -/
+structure URI where
+  scheme : String
+  authority : Option String
+  path : String
+  query : Option String
+  fragment : Option String
+deriving Repr, BEq
+
+instance : ToString URI where
+  toString uri :=
+    uri.scheme ++ ":" ++
+    (match uri.authority with
+    | some auth => "//" ++ auth
+    | none => "") ++
+    uri.path ++
+    (match uri.query with
+    | some q => "?" ++ q
+    | none => "") ++
+    (match uri.fragment with
+    | some f => "#" ++ f
+    | none => "")
+
+/-- hier-part = "//" authority path-abempty
+              / path-absolute
+              / path-rootless
+              / path-empty -/
+def hierPart : Parser (Option String × String) :=
+  -- Try "//" authority path-abempty
+  (attempt do
+    skipString "//"
+    let auth ← authority
+    let pathPart ← pathAbempty
+    return (some auth, pathPart)
+  )
+  -- Or try path-absolute
+  <|> (attempt do
+    let pathPart ← pathAbsolute
+    return (none, pathPart)
+  )
+  -- Or try path-rootless
+  <|> (attempt do
+    let pathPart ← pathRootless
+    return (none, pathPart)
+  )
+  -- Or path-empty
+  <|> do
+    let pathPart ← pathEmpty
+    return (none, pathPart)
+
+/-- URI = scheme ":" hier-part [ "?" query ] [ "#" fragment ] -/
+def uri : Parser URI := do
+  let schemePart ← scheme
+  skipChar ':'
+  let (auth, pathPart) ← hierPart
+  let queryPart ← (attempt (skipChar '?' *> query >>= fun q => pure (some q))) <|> pure none
+  let fragPart ← (attempt (skipChar '#' *> fragment >>= fun f => pure (some f))) <|> pure none
+
+  return {
+    scheme := schemePart
+    authority := auth
+    path := pathPart
+    query := queryPart
+    fragment := fragPart
+  }
+
 end LeanUri
