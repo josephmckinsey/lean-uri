@@ -205,6 +205,80 @@ def testAuthority : IO Bool := do
 
   return allPassed
 
+def testPath : IO Bool := do
+  IO.println "\n=== Testing path components ==="
+  let mut allPassed := true
+
+  -- path-abempty (begins with "/" or is empty)
+  allPassed := (← testParserComplete "empty path" pathAbempty "" "") && allPassed
+  allPassed := (← testParserComplete "single segment" pathAbempty "/foo" "/foo") && allPassed
+  allPassed := (← testParserComplete "multiple segments" pathAbempty "/foo/bar" "/foo/bar") && allPassed
+  allPassed := (← testParserComplete "with percent-encoding" pathAbempty "/foo%20bar/baz" "/foo%20bar/baz") && allPassed
+  allPassed := (← testParserComplete "with special chars" pathAbempty "/foo:bar/@test" "/foo:bar/@test") && allPassed
+
+  -- path-absolute (begins with "/" but not "//")
+  allPassed := (← testParserComplete "absolute root" pathAbsolute "/" "/") && allPassed
+  allPassed := (← testParserComplete "absolute path" pathAbsolute "/foo/bar" "/foo/bar") && allPassed
+  allPassed := (← testParserComplete "absolute with colon" pathAbsolute "/foo:bar" "/foo:bar") && allPassed
+
+  -- path-rootless (begins with a segment)
+  allPassed := (← testParserComplete "rootless single" pathRootless "foo" "foo") && allPassed
+  allPassed := (← testParserComplete "rootless multiple" pathRootless "foo/bar" "foo/bar") && allPassed
+  allPassed := (← testParserComplete "rootless with colon" pathRootless "foo:bar/baz" "foo:bar/baz") && allPassed
+
+  -- path-noscheme (begins with non-colon segment)
+  allPassed := (← testParserComplete "noscheme simple" pathNoscheme "foo" "foo") && allPassed
+  allPassed := (← testParserComplete "noscheme multiple" pathNoscheme "foo/bar" "foo/bar") && allPassed
+  allPassed := (← testParserComplete "noscheme colon in second" pathNoscheme "foo/bar:baz" "foo/bar:baz") && allPassed
+  
+  -- Invalid paths
+  allPassed := (← expectErrorComplete "noscheme with colon in first" pathNoscheme "foo:bar") && allPassed
+  allPassed := (← expectErrorComplete "path with space" pathAbsolute "/foo bar") && allPassed
+  allPassed := (← expectErrorComplete "path with hash" pathAbsolute "/foo#bar") && allPassed
+  allPassed := (← expectErrorComplete "path with question" pathAbsolute "/foo?bar") && allPassed
+  allPassed := (← expectErrorComplete "path with bracket" pathAbsolute "/foo[bar]") && allPassed
+
+  return allPassed
+
+def testQuery : IO Bool := do
+  IO.println "\n=== Testing query ==="
+  let mut allPassed := true
+
+  allPassed := (← testParserComplete "empty query" query "" "") && allPassed
+  allPassed := (← testParserComplete "simple query" query "name=value" "name=value") && allPassed
+  allPassed := (← testParserComplete "multiple params" query "a=1&b=2" "a=1&b=2") && allPassed
+  allPassed := (← testParserComplete "with slash" query "path/to/resource" "path/to/resource") && allPassed
+  allPassed := (← testParserComplete "with question mark" query "a=1?b=2" "a=1?b=2") && allPassed
+  allPassed := (← testParserComplete "percent-encoded" query "name=hello%20world" "name=hello%20world") && allPassed
+  allPassed := (← testParserComplete "with colon" query "key:value" "key:value") && allPassed
+  allPassed := (← testParserComplete "with @" query "user@domain" "user@domain") && allPassed
+
+  -- Invalid query
+  allPassed := (← expectErrorComplete "query with space" query "name=hello world") && allPassed
+  allPassed := (← expectErrorComplete "query with hash" query "name=value#section") && allPassed
+  allPassed := (← expectErrorComplete "query with bracket" query "arr[0]=value") && allPassed
+
+  return allPassed
+
+def testFragment : IO Bool := do
+  IO.println "\n=== Testing fragment ==="
+  let mut allPassed := true
+
+  allPassed := (← testParserComplete "empty fragment" fragment "" "") && allPassed
+  allPassed := (← testParserComplete "simple fragment" fragment "section1" "section1") && allPassed
+  allPassed := (← testParserComplete "with slash" fragment "section/subsection" "section/subsection") && allPassed
+  allPassed := (← testParserComplete "with question mark" fragment "section?param=value" "section?param=value") && allPassed
+  allPassed := (← testParserComplete "percent-encoded" fragment "sec%20tion" "sec%20tion") && allPassed
+  allPassed := (← testParserComplete "with colon" fragment "line:42" "line:42") && allPassed
+  allPassed := (← testParserComplete "with @" fragment "user@note" "user@note") && allPassed
+
+  -- Invalid fragment
+  allPassed := (← expectErrorComplete "fragment with space" fragment "sec tion") && allPassed
+  allPassed := (← expectErrorComplete "fragment with hash" fragment "section#subsection") && allPassed
+  allPassed := (← expectErrorComplete "fragment with bracket" fragment "item[0]") && allPassed
+
+  return allPassed
+
 def main : IO Unit := do
   let mut allPassed := true
 
@@ -219,6 +293,9 @@ def main : IO Unit := do
   allPassed := (← testPort) && allPassed
   allPassed := (← testHost) && allPassed
   allPassed := (← testAuthority) && allPassed
+  allPassed := (← testPath) && allPassed
+  allPassed := (← testQuery) && allPassed
+  allPassed := (← testFragment) && allPassed
 
   IO.println "\n========================="
   if allPassed then

@@ -131,4 +131,89 @@ def authority : Parser String := do
     hostPart ++
     (if portPart.isEmpty then "" else ":" ++ portPart)
 
+/-! ## Path (RFC 3986 Section 3.3) -/
+
+/-- pchar = unreserved / pct-encoded / sub-delims / ":" / "@" -/
+def pchar : Parser String :=
+  pctEncoded
+  <|> (·.toString) <$> unreserved
+  <|> (·.toString) <$> subDelims
+  <|> (·.toString) <$> satisfy (· == ':')
+  <|> (·.toString) <$> satisfy (· == '@')
+
+/-- segment = *pchar -/
+def segment : Parser String :=
+  manyStrings pchar
+
+/-- segment-nz = 1*pchar (non-zero-length segment) -/
+def segmentNz : Parser String := do
+  let first ← pchar
+  let rest ← manyStrings pchar
+  return first ++ rest
+
+/-- segment-nz-nc = 1*( unreserved / pct-encoded / sub-delims / "@" )
+    (non-zero-length segment without any colon ":") -/
+def segmentNzNc : Parser String := do
+  let first ← pctEncoded
+    <|> (·.toString) <$> unreserved
+    <|> (·.toString) <$> subDelims
+    <|> (·.toString) <$> satisfy (· == '@')
+  let rest ← manyStrings (
+    pctEncoded
+    <|> (·.toString) <$> unreserved
+    <|> (·.toString) <$> subDelims
+    <|> (·.toString) <$> satisfy (· == '@')
+  )
+  return first ++ rest
+
+/-- path-abempty = *( "/" segment ) -/
+def pathAbempty : Parser String :=
+  manyStrings (pstring "/" *> segment >>= fun s => pure ("/" ++ s))
+
+/-- path-absolute = "/" [ segment-nz *( "/" segment ) ] -/
+def pathAbsolute : Parser String := do
+  skipChar '/'
+  let rest ← (attempt do
+    let first ← segmentNz
+    let segs ← manyStrings (pstring "/" *> segment >>= fun s => pure ("/" ++ s))
+    return first ++ segs
+  ) <|> pure ""
+  return "/" ++ rest
+
+/-- path-noscheme = segment-nz-nc *( "/" segment ) -/
+def pathNoscheme : Parser String := do
+  let first ← segmentNzNc
+  let rest ← manyStrings (pstring "/" *> segment >>= fun s => pure ("/" ++ s))
+  return first ++ rest
+
+/-- path-rootless = segment-nz *( "/" segment ) -/
+def pathRootless : Parser String := do
+  let first ← segmentNz
+  let rest ← manyStrings (pstring "/" *> segment >>= fun s => pure ("/" ++ s))
+  return first ++ rest
+
+/-- path-empty = 0<pchar> -/
+def pathEmpty : Parser String :=
+  pure ""
+
+/-! ## Query (RFC 3986 Section 3.4) -/
+
+/-- query = *( pchar / "/" / "?" ) -/
+def query : Parser String :=
+  manyStrings (
+    pchar
+    <|> (·.toString) <$> satisfy (· == '/')
+    <|> (·.toString) <$> satisfy (· == '?')
+  )
+
+/-! ## Fragment (RFC 3986 Section 3.5) -/
+
+/-- fragment = *( pchar / "/" / "?" ) -/
+def fragment : Parser String :=
+  manyStrings (
+    pchar
+    <|> (·.toString) <$> satisfy (· == '/')
+    <|> (·.toString) <$> satisfy (· == '?')
+  )
+
 end LeanUri
