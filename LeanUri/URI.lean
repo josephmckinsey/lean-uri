@@ -5,40 +5,10 @@ Main URI structure, authority, path, and resolution logic for RFC 3986
 import LeanUri.Parsers
 import LeanUri.IPv4
 import LeanUri.IPv6
+import LeanUri.Defs
 import Std.Internal.Parsec.String
 
-namespace LeanUri
-
-structure URI where
-  scheme : String
-  authority : Option String
-  path : String
-  query : Option String
-  fragment : Option String
-deriving Repr, BEq
-
-instance : ToString URI where
-  toString uri :=
-    uri.scheme ++ ":" ++
-    (match uri.authority with
-    | some auth => "//" ++ auth
-    | none => "") ++
-    uri.path ++
-    (match uri.query with
-    | some q => "?" ++ q
-    | none => "") ++
-    (match uri.fragment with
-    | some f => "#" ++ f
-    | none => "")
-
-structure RelativeRef where
-  authority : Option String
-  path : String
-  query : Option String
-  fragment : Option String
-  deriving Repr
-
-namespace Internal
+namespace LeanUri.Internal
 
 open Std.Internal.Parsec
 open Std.Internal.Parsec.String
@@ -296,6 +266,4 @@ def parseAndResolve (baseUri : URI) (reference : String) : Except String URI :=
   | .ok (Sum.inr relRef) => .ok (resolve baseUri relRef)
   | .error e => .error e
 
-end Internal
-
-end LeanUri
+end LeanUri.Internal
