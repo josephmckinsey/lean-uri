@@ -6,6 +6,9 @@ testDriver = "testURI"
 [[lean_lib]]
 name = "LeanUri"
 
+[[lean_lib]]
+name = "UriTesting"
+
 [[lean_exe]]
 name = "testURI"
 root = "TestRunner"
