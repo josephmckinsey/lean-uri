@@ -30,15 +30,8 @@ def recordTest (name : String) (passed : Bool) (msg? : Option String := none) (s
       let newChildren := children.push (TestTree.test name passed skipped msg?)
       set { s with stack := (g, newChildren) :: rest }
 
-def test (name : String) (passed : Bool) : TestM Unit := do
-  if passed then
-    recordTest name true none
-  else
-    recordTest name false (some "FAILED")
-    let s ← get
-    let groupNames := s.stack.reverse.map (·.fst)
-    let fullName := (String.intercalate "/" (groupNames ++ [name])).trim
-    IO.println s!"✗ {fullName} FAILED"
+def test (name : String) (passed : Bool) (msg? : Option String := none) : TestM Unit := do
+  recordTest name passed msg?
 
 def skip (name : String) (_ : TestM α): TestM Unit :=
   recordTest name true none true
@@ -79,21 +72,29 @@ def countTree : TestTree → (Nat × Nat × Nat)
         (t + ct, p + cp, f + cf)) (0, 0, 0)
 
 def printTreeSummary (tree : TestTree) (indent : String := "") : IO Unit :=
+  let reset := "\x1b[0m"
+  let red := "\x1b[31m"
+  let green := "\x1b[32m"
+  let yellow := "\x1b[33m"
   match tree with
   | TestTree.test name passed skipped msg? =>
       if !passed && !skipped then
-        IO.println s!"{indent}✗ {name}{match msg? with | some m => ": " ++ m | none => ""}"
+        let msg := match msg? with | some m => ": " ++ m | none => "";
+        IO.println s!"{indent}✗ {name}{msg} {red}FAILED{reset}"
       else if skipped then
-        IO.println s!"{indent}- {name} (skipped)"
+        IO.println s!"{indent}- {name} ({yellow}skipped{reset})"
       else
         pure ()
   | TestTree.group name children false => do
       let (t, p, f) := countTree (TestTree.group name children)
+      if f > 0 then
+        IO.println s!"{indent}{name}: {p}/{t} {red}FAIL{reset}, {red}{f} failed{reset}."
+      else
+        IO.println s!"{indent}{name}: {green}{p}/{t} PASS {reset}, {f} failed."
       for c in children do
         printTreeSummary c (indent ++ "  ")
-      IO.println s!"{indent}{name}: {p}/{t} passed, {f} failed."
   | TestTree.group name _ true => do
-      IO.println s!"{indent}{name}: Skipped."
+      IO.println s!"{indent}{yellow}{name}: Skipped.{reset}"
 
 def printSummary : TestM Unit := do
   let s ← get
