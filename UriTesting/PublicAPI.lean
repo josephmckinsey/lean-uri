@@ -15,14 +15,18 @@ def base : URI := { scheme := "https", authority := some "example.com", path := 
 #eval (URI.resolve base "../x").map (·.toString)
 
 def u := URI.encode "https" (some "user name@host") "/foo bar" (some "q=1 2") (some "frag ment")
+/-- info: "https://user%20name@host/foo%20bar?q=1%202#frag%20ment" -/
 #guard_msgs in
 #eval u.toString
--- info: "https://user%20name@host/foo%20bar?q=1%202#frag%20ment"
 
 def r := RelativeRef.parse "/foo/bar?x#y"
+/--
+info: Except.ok { authority := none, path := "/foo/bar", query := some "x", fragment := some "y" }
+-/
 #guard_msgs in
 #eval r
 
+/-- info: some "/dir/index.html" -/
 #guard_msgs in
 #eval base.getPath
 
