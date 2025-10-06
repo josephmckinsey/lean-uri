@@ -170,4 +170,87 @@ URI.equivalent u1 u2 = true
 def URI.equivalent (uri1 : URI) (uri2 : URI) : Bool :=
   uri1.normalize == uri2.normalize
 
+open Internal in
+/-- Construct a URI from raw (unencoded) components, automatically percent-encoding as required by RFC 3986.
+    This ensures the resulting URI is valid and safe for serialization. -/
+@[inline]
+def URI.mkEncoded (scheme : String)
+    (authority : Option String := none)
+    (path : String := "")
+    (query : Option String := none)
+    (fragment : Option String := none)
+  : URI :=
+  let encodeAuth := authority.map (pctEncode (fun c => isUnreserved c || isSubDelim c || c == ':' || c == '@'))
+  let encodePath := pctEncode isPathChar path
+  let encodeQuery := query.map (pctEncode isQueryOrFragmentChar)
+  let encodeFragment := fragment.map (pctEncode isQueryOrFragmentChar)
+  {
+    scheme := scheme,
+    authority := encodeAuth,
+    path := encodePath,
+    query := encodeQuery,
+    fragment := encodeFragment
+  }
+
+open Internal in
+/-- Construct a RelativeRef from raw (unencoded) components, automatically percent-encoding as required by RFC 3986.
+    This ensures the resulting RelativeRef is valid and safe for serialization. -/
+@[inline]
+def RelativeRef.mkEncoded (
+    authority : Option String := none)
+    (path : String := "")
+    (query : Option String := none)
+    (fragment : Option String := none)
+  : RelativeRef :=
+  let encodeAuth := authority.map (pctEncode (fun c => isUnreserved c || isSubDelim c || c == ':' || c == '@'))
+  let encodePath := pctEncode isPathChar path
+  let encodeQuery := query.map (pctEncode isQueryOrFragmentChar)
+  let encodeFragment := fragment.map (pctEncode isQueryOrFragmentChar)
+  {
+    authority := encodeAuth,
+    path := encodePath,
+    query := encodeQuery,
+    fragment := encodeFragment
+  }
+
+/-- Get the decoded (unescaped) authority component of a RelativeRef, if present. -/
+@[inline]
+def RelativeRef.getAuthority (r : RelativeRef) : Option String :=
+  r.authority >>= (fun s => match pctDecode s with | .ok r => some r | .error _ => none)
+
+/-- Get the decoded (unescaped) path component of a RelativeRef. -/
+@[inline]
+def RelativeRef.getPath (r : RelativeRef) : Option String :=
+  match pctDecode r.path with | .ok r => some r | .error _ => none
+
+/-- Get the decoded (unescaped) query component of a RelativeRef, if present. -/
+@[inline]
+def RelativeRef.getQuery (r : RelativeRef) : Option String :=
+  r.query >>= (fun s => match pctDecode s with | .ok r => some r | .error _ => none)
+
+/-- Get the decoded (unescaped) fragment component of a RelativeRef, if present. -/
+@[inline]
+def RelativeRef.getFragment (r : RelativeRef) : Option String :=
+  r.fragment >>= (fun s => match pctDecode s with | .ok r => some r | .error _ => none)
+
+/-- Get the decoded (unescaped) authority component of a URI, if present. -/
+@[inline]
+def URI.getAuthority (u : URI) : Option String :=
+  u.authority >>= (fun s => match pctDecode s with | .ok r => some r | .error _ => none)
+
+/-- Get the decoded (unescaped) path component of a URI. -/
+@[inline]
+def URI.getPath (u : URI) : Option String :=
+  match pctDecode u.path with | .ok r => some r | .error _ => none
+
+/-- Get the decoded (unescaped) query component of a URI, if present. -/
+@[inline]
+def URI.getQuery (u : URI) : Option String :=
+  u.query >>= (fun s => match pctDecode s with | .ok r => some r | .error _ => none)
+
+/-- Get the decoded (unescaped) fragment component of a URI, if present. -/
+@[inline]
+def URI.getFragment (u : URI) : Option String :=
+  u.fragment >>= (fun s => match pctDecode s with | .ok r => some r | .error _ => none)
+
 end LeanUri

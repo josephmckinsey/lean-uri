@@ -126,4 +126,9 @@ def expectErrorComplete {α : Type} (parser : Parser α) (input : String) : Bool
   | .ok _ => false
   | .error _ => true
 
+def testEq {α : Type} [BEq α] [ToString α] (name : String) (actual expected : α) : TestM Unit :=
+  let passed := actual == expected
+  let msg? := if passed then none else some (s!"Expected: {expected}, got: {actual}")
+  test name passed msg?
+
 end Testing

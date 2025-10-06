@@ -152,17 +152,27 @@ def pctDecodeToByteString : Parser ByteArray := do
     (fun x => x.toString.toUTF8.data) <$> any
   )
 
+def pctEncodeChar (c : Char) : String :=
+  String.join (c.toString.toUTF8.data.map uInt8ToHexChars).toList
+
+def parsePctNormalize (allowed : Char → Bool) : Parser String :=
+  manyAppendString (parseOnePctNormalize allowed <|> toString <$> any)
+
+def pctNormalize (allowed : Char → Bool) (s : String) : String :=
+  match (parsePctNormalize allowed).run s with
+  | .ok result => result
+  | .error _ => s
+
+end Internal
+
 /-- Decode percent encoded string into ordinary string.
 -/
 def pctDecode (s : String) : Except String String :=
-  match pctDecodeToByteString.run s with
+  match Internal.pctDecodeToByteString.run s with
   | .ok byteString => match String.fromUTF8? byteString with
     | .some s => .ok s
     | .none => .error "Could not decode UTF8 string"
   | .error msg => .error msg
-
-def pctEncodeChar (c : Char) : String :=
-  String.join (c.toString.toUTF8.data.map uInt8ToHexChars).toList
 
 -- I gave up and wrote this one iteratively. This can probaly be a parser run
 /-- Encode all allowed chars in a string to percent encoded bytes
@@ -175,15 +185,7 @@ def pctEncode (allowed : Char → Bool) (s : String) : String := Id.run do
     if allowed c then
       acc := acc.push c
     else
-      acc := acc.append (pctEncodeChar c)
+      acc := acc.append (Internal.pctEncodeChar c)
   return acc
 
-def parsePctNormalize (allowed : Char → Bool) : Parser String :=
-  manyAppendString (parseOnePctNormalize allowed <|> toString <$> any)
-
-def pctNormalize (allowed : Char → Bool) (s : String) : String :=
-  match (parsePctNormalize allowed).run s with
-  | .ok result => result
-  | .error _ => s
-
-end LeanUri.Internal
+end LeanUri

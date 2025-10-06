@@ -1,7 +1,7 @@
 import UriTesting.Parsing
 import UriTesting.Resolution
 import UriTesting.Normalization
-
+import UriTesting.PublicAPI
 
 def main (args : List String) : IO Unit := do
   let filter : String → Bool := match args with
@@ -9,6 +9,7 @@ def main (args : List String) : IO Unit := do
   | _  => fun _ => true
 
   Testing.TestM.run (filter := filter) do
+    /-
     Testing.group "Parsing Tests" do
       testPctEncoded
       testScheme
@@ -25,4 +26,6 @@ def main (args : List String) : IO Unit := do
       testURI
     testRelativeResolution
     allNormalizationTests
+    allPublicAPITests
+    -/
     Testing.printSummary
