@@ -27,7 +27,7 @@ def testParseReference : TestM Unit := testFunction "parseReference" do
   testEq "parseReference relative" (parseReference "./a/b").isOk true
 
 def testURIToString : TestM Unit := testFunction "URI.toString" do
-  let u := URI.mkEncoded "http" (some "host") "/p" (some "q") (some "f")
+  let u := URI.encode "http" (some "host") "/p" (some "q") (some "f")
   testEq "URI.toString" (u.toString) "http://host/p?q#f"
 
 def testRelativeRefToString : TestM Unit := testFunction "RelativeRef.toString" do
@@ -35,40 +35,40 @@ def testRelativeRefToString : TestM Unit := testFunction "RelativeRef.toString" 
   testEq "RelativeRef.toString" (r.toString) "//host/p?q#f"
 
 def testURINormalize : TestM Unit := testFunction "URI.normalize" do
-  let u := URI.mkEncoded "http" (some "host") "/p" (some "q") (some "f")
+  let u := URI.encode "http" (some "host") "/p" (some "q") (some "f")
   let u2 := URI.parse "HTTP://EXAMPLE.com/a/./b/../c" |>.toOption.getD u
   testEq "URI.normalize" (URI.normalize u2).toString "http://example.com/a/c"
 
 def testURIResolve : TestM Unit := testFunction "URI.resolve" do
-  let base := URI.mkEncoded "http" (some "host") "/dir/index.html"
+  let base := URI.encode "http" (some "host") "/dir/index.html"
   testEq "URI.resolve relative" ((URI.resolve base "../x").toOption.map (λ u => u.toString)) (some "http://host/x")
 
 def testURIResolveRef : TestM Unit := testFunction "URI.resolveRef" do
-  let base := URI.mkEncoded "http" (some "host") "/dir/index.html"
+  let base := URI.encode "http" (some "host") "/dir/index.html"
   let rr : RelativeRef := { authority := none, path := "../x", query := none, fragment := none }
   testEq "URI.resolveRef" ((URI.resolveRef base rr).toString) "http://host/x"
 
 def testURIIsAbsolute : TestM Unit := testFunction "URI.isAbsolute" do
-  let u := URI.mkEncoded "http" (some "host") "/p" (some "q") (some "f")
+  let u := URI.encode "http" (some "host") "/p" (some "q") (some "f")
   testEq "isAbsolute true" (URI.isAbsolute u) true
-  testEq "isAbsolute false" (URI.isAbsolute (URI.mkEncoded "mailto" none "foo@bar")) false
+  testEq "isAbsolute false" (URI.isAbsolute (URI.encode "mailto" none "foo@bar")) false
 
 def testURIMkEncoded : TestM Unit := testFunction "URI.mkEncoded" do
-  testEq "URI.mkEncoded encodes" (URI.mkEncoded "http" (some "user name@host") "/foo bar" (some "q=1 2") (some "frag ment")).toString "http://user%20name@host/foo%20bar?q=1%202#frag%20ment"
+  testEq "URI.mkEncoded encodes" (URI.encode "http" (some "user name@host") "/foo bar" (some "q=1 2") (some "frag ment")).toString "http://user%20name@host/foo%20bar?q=1%202#frag%20ment"
 
 def testRelativeRefMkEncoded : TestM Unit := testFunction "RelativeRef.mkEncoded" do
-  testEq "authority only" (RelativeRef.mkEncoded (some "user:pass@example.com")).toString "//user:pass@example.com"
-  testEq "path only" (RelativeRef.mkEncoded none "/foo bar").toString "/foo%20bar"
-  testEq "query only" (RelativeRef.mkEncoded none "" (some "a=1&b=2")).toString "?a=1&b=2"
-  testEq "fragment only" (RelativeRef.mkEncoded none "" none (some "frag ment")).toString "#frag%20ment"
-  testEq "all components" (RelativeRef.mkEncoded (some "user@host:80") "/p ath" (some "q=1 2") (some "frag#")).toString "//user@host:80/p%20ath?q=1%202#frag%23"
-  testEq "unreserved chars" (RelativeRef.mkEncoded none "/azAZ09-._~").toString "/azAZ09-._~"
-  testEq "reserved chars in path" (RelativeRef.mkEncoded none "/:@!$&'()*+,;=").toString "/:@!$&'()*+,;="
-  testEq "space in authority" (RelativeRef.mkEncoded (some "user name@host")).toString "//user%20name@host"
+  testEq "authority only" (RelativeRef.encode (some "user:pass@example.com")).toString "//user:pass@example.com"
+  testEq "path only" (RelativeRef.encode none "/foo bar").toString "/foo%20bar"
+  testEq "query only" (RelativeRef.encode none "" (some "a=1&b=2")).toString "?a=1&b=2"
+  testEq "fragment only" (RelativeRef.encode none "" none (some "frag ment")).toString "#frag%20ment"
+  testEq "all components" (RelativeRef.encode (some "user@host:80") "/p ath" (some "q=1 2") (some "frag#")).toString "//user@host:80/p%20ath?q=1%202#frag%23"
+  testEq "unreserved chars" (RelativeRef.encode none "/azAZ09-._~").toString "/azAZ09-._~"
+  testEq "reserved chars in path" (RelativeRef.encode none "/:@!$&'()*+,;=").toString "/:@!$&'()*+,;="
+  testEq "space in authority" (RelativeRef.encode (some "user name@host")).toString "//user%20name@host"
 
 def testURIEquivalent : TestM Unit := testFunction "URI.equivalent" do
-  let u3 := URI.mkEncoded "http" (some "EXAMPLE.com") "/a/./b/../c"
-  let u4 := URI.mkEncoded "http" (some "example.COM") "/a/c"
+  let u3 := URI.encode "http" (some "EXAMPLE.com") "/a/./b/../c"
+  let u4 := URI.encode "http" (some "example.COM") "/a/c"
   testEq "URI.equivalent" (URI.equivalent u3 u4) true
 
 def testURIGetAccessors : TestM Unit := testFunction "URI.get* accessors" do

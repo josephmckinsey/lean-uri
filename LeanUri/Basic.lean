@@ -174,7 +174,7 @@ open Internal in
 /-- Construct a URI from raw (unencoded) components, automatically percent-encoding as required by RFC 3986.
     This ensures the resulting URI is valid and safe for serialization. -/
 @[inline]
-def URI.mkEncoded (scheme : String)
+def URI.encode (scheme : String)
     (authority : Option String := none)
     (path : String := "")
     (query : Option String := none)
@@ -196,7 +196,7 @@ open Internal in
 /-- Construct a RelativeRef from raw (unencoded) components, automatically percent-encoding as required by RFC 3986.
     This ensures the resulting RelativeRef is valid and safe for serialization. -/
 @[inline]
-def RelativeRef.mkEncoded (
+def RelativeRef.encode (
     authority : Option String := none)
     (path : String := "")
     (query : Option String := none)
