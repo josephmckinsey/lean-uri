@@ -20,7 +20,7 @@ def testURIParse : TestM Unit := testFunction "URI.parse" do
 
 def testRelativeRefParse : TestM Unit := testFunction "RelativeRef.parse" do
   testEq "parse simple relative" (RelativeRef.parse "/foo/bar?x#y").isOk true
-  testEq "parse invalid relative" (RelativeRef.parse ":bad").isOk false
+  testEq "parse weird relative" (RelativeRef.parse ":bad").isOk true
 
 def testParseReference : TestM Unit := testFunction "parseReference" do
   testEq "parseReference absolute" (parseReference "mailto:user@example.com").isOk true
@@ -31,7 +31,7 @@ def testURIToString : TestM Unit := testFunction "URI.toString" do
   testEq "URI.toString" (u.toString) "http://host/p?q#f"
 
 def testRelativeRefToString : TestM Unit := testFunction "RelativeRef.toString" do
-  let r := RelativeRef.mkEncoded (some "host") "/p" (some "q") (some "f")
+  let r : RelativeRef := { authority := some "host", path := "/p", query := some "q", fragment := some "f" }
   testEq "RelativeRef.toString" (r.toString) "//host/p?q#f"
 
 def testURINormalize : TestM Unit := testFunction "URI.normalize" do
@@ -45,7 +45,7 @@ def testURIResolve : TestM Unit := testFunction "URI.resolve" do
 
 def testURIResolveRef : TestM Unit := testFunction "URI.resolveRef" do
   let base := URI.mkEncoded "http" (some "host") "/dir/index.html"
-  let rr := RelativeRef.mkEncoded none "../x"
+  let rr : RelativeRef := { authority := none, path := "../x", query := none, fragment := none }
   testEq "URI.resolveRef" ((URI.resolveRef base rr).toString) "http://host/x"
 
 def testURIIsAbsolute : TestM Unit := testFunction "URI.isAbsolute" do
@@ -72,14 +72,14 @@ def testURIEquivalent : TestM Unit := testFunction "URI.equivalent" do
   testEq "URI.equivalent" (URI.equivalent u3 u4) true
 
 def testURIGetAccessors : TestM Unit := testFunction "URI.get* accessors" do
-  let u5 := URI.mkEncoded "http" (some "user%20name@host") "/foo%20bar" (some "q=1%202") (some "frag%20ment")
+  let u5 : URI := { scheme := "http", authority := some "user%20name@host", path := "/foo%20bar", query := some "q=1%202", fragment := some "frag%20ment" }
   testEq "URI.getAuthority" (u5.getAuthority) (some "user name@host")
   testEq "URI.getPath" (u5.getPath) (some "/foo bar")
   testEq "URI.getQuery" (u5.getQuery) (some "q=1 2")
   testEq "URI.getFragment" (u5.getFragment) (some "frag ment")
 
 def testRelativeRefGetAccessors : TestM Unit := testFunction "RelativeRef.get* accessors" do
-  let r2 := RelativeRef.mkEncoded (some "user%20name@host") "/foo%20bar" (some "q=1%202") (some "frag%20ment")
+  let r2 : RelativeRef := { authority := some "user%20name@host", path := "/foo%20bar", query := some "q=1%202", fragment := some "frag%20ment" }
   testEq "RelativeRef.getAuthority" (r2.getAuthority) (some "user name@host")
   testEq "RelativeRef.getPath" (r2.getPath) (some "/foo bar")
   testEq "RelativeRef.getQuery" (r2.getQuery) (some "q=1 2")

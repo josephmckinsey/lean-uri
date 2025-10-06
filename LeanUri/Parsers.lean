@@ -43,6 +43,9 @@ def isReserved (c : Char) : Bool :=
 partial def manyStrings (p : Parser String) (acc : String := "") : Parser String :=
   tryCatch p (fun s => manyStrings p (acc ++ s)) (fun _ => pure acc)
 
+partial def manyStrings1 (p : Parser String) : Parser String := do
+  manyStrings (p) (← p)
+
 /-- Parse a percent-encoded octet: pct-encoded = "%" HEXDIG HEXDIG -/
 def pctEncoded : Parser String := do
   skipChar '%'
@@ -60,7 +63,7 @@ def subDelims : Parser Char := satisfy isSubDelim
 
 /-- Allowed in a path segment: unreserved, sub-delims, ':', '@' --/
 def isPathChar (c : Char) : Bool :=
-  isUnreserved c || isSubDelim c || c == ':' || c == '@'
+  isUnreserved c || isSubDelim c || c == ':' || c == '@' || c == '/'
 
 /-- Allowed in a query or fragment: unreserved, sub-delims, ':', '@', '/', '?' --/
 def isQueryOrFragmentChar (c : Char) : Bool :=
@@ -101,8 +104,8 @@ def uInt8toOneHexChar (x : UInt8) : Char :=
 
 /-- Convert a UInt8 to percent encoded-/
 def uInt8ToHexChars (c : UInt8) : String :=
-  let h1 := uInt8toOneHexChar (c % 16)
-  let h2 := uInt8toOneHexChar (c / 16)
+  let h1 := uInt8toOneHexChar (c / 16)
+  let h2 := uInt8toOneHexChar (c % 16)
   s!"%{h1}{h2}"
 
 def decodeCharsToUInt8 (h1 h2 : Char) : UInt8 :=

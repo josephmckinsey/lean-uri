@@ -66,17 +66,12 @@ def segmentNz : Parser String := do
 /-- segment-nz-nc = 1*( unreserved / pct-encoded / sub-delims / "@" )
     (non-zero-length segment without any colon ":") -/
 def segmentNzNc : Parser String := do
-  let first ← pctEncoded
-    <|> (·.toString) <$> unreserved
-    <|> (·.toString) <$> subDelims
-    <|> (·.toString) <$> satisfy (· == '@')
-  let rest ← manyStrings (
+  manyStrings1 (
     pctEncoded
     <|> (·.toString) <$> unreserved
     <|> (·.toString) <$> subDelims
     <|> (·.toString) <$> satisfy (· == '@')
   )
-  return first ++ rest
 
 /-- path-abempty = *( "/" segment ) -/
 def pathAbempty : Parser String :=
