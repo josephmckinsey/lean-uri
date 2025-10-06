@@ -9,7 +9,6 @@ def main (args : List String) : IO Unit := do
   | _  => fun _ => true
 
   Testing.TestM.run (filter := filter) do
-    /-
     Testing.group "Parsing Tests" do
       testPctEncoded
       testScheme
@@ -27,5 +26,4 @@ def main (args : List String) : IO Unit := do
     testRelativeResolution
     allNormalizationTests
     allPublicAPITests
-    -/
     Testing.printSummary

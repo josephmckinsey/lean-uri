@@ -186,6 +186,7 @@ def pctEncode (allowed : Char → Bool) (s : String) : String := Id.run do
       acc := acc.push c
     else
       acc := acc.append (Internal.pctEncodeChar c)
+    charIter := charIter.next
   return acc
 
 end LeanUri

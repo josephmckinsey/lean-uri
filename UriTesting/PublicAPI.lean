@@ -3,7 +3,6 @@ import UriTesting.Helpers
 open LeanUri
 open Testing
 
-/-
 /-- info: "https://example.com/a/c?x#y" -/
 #guard_msgs in
 #eval match URI.parse "https://EXAMPLE.com/a/./b/../c?x#y" with
@@ -14,7 +13,6 @@ def base : URI := { scheme := "https", authority := some "example.com", path := 
 /-- info: Except.ok "https://example.com/x" -/
 #guard_msgs in
 #eval (URI.resolve base "../x").map (·.toString)
--/
 
 def testURIParse : TestM Unit := testFunction "URI.parse" do
   testEq "parse simple URI" (URI.parse "http://a/b?c#d").isOk true
