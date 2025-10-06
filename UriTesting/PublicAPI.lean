@@ -14,6 +14,18 @@ def base : URI := { scheme := "https", authority := some "example.com", path := 
 #guard_msgs in
 #eval (URI.resolve base "../x").map (·.toString)
 
+def u := URI.encode "https" (some "user name@host") "/foo bar" (some "q=1 2") (some "frag ment")
+#guard_msgs in
+#eval u.toString
+-- info: "https://user%20name@host/foo%20bar?q=1%202#frag%20ment"
+
+def r := RelativeRef.parse "/foo/bar?x#y"
+#guard_msgs in
+#eval r
+
+#guard_msgs in
+#eval base.getPath
+
 def testURIParse : TestM Unit := testFunction "URI.parse" do
   testEq "parse simple URI" (URI.parse "http://a/b?c#d").isOk true
   testEq "parse invalid URI" (URI.parse "not a uri").isOk false

@@ -12,6 +12,7 @@ Lean 4 library for RFC 3986 URIs: parse, print, normalize, and resolve.
 - Resolve relative references against a base `URI`
 - Normalize URIs
 - Equivalence via normalization
+- Percent decoding with getters and `URI.encode` and `RelativeRef.encode`
 
 Warning: Not efficient
 
@@ -31,6 +32,22 @@ def base : URI := { scheme := "https", authority := some "example.com", path := 
 /-- info: Except.ok "https://example.com/x" -/
 #guard_msgs in
 #eval (URI.resolve base "../x").map (·.toString)
+
+def u := URI.encode "https" (some "user name@host") "/foo bar" (some "q=1 2") (some "frag ment")
+/-- info: "https://user%20name@host/foo%20bar?q=1%202#frag%20ment" -/
+#guard_msgs in
+#eval u.toString
+
+def r := RelativeRef.parse "/foo/bar?x#y"
+/--
+info: Except.ok { authority := none, path := "/foo/bar", query := some "x", fragment := some "y" }
+-/
+#guard_msgs in
+#eval r
+
+/-- info: some "/dir/index.html" -/
+#guard_msgs in
+#eval base.getPath
 ```
 
 ## Installation (Lake)
