@@ -13,7 +13,7 @@ Warning: Not efficient
 ## Quick start
 
 ```lean
-import LeanUri
+import LeanUri.Basic
 open LeanUri
 
 /-- info: "https://example.com/a/c?x#y" -/

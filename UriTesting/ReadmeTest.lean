@@ -1,4 +1,4 @@
-import LeanUri
+import LeanUri.Basic
 open LeanUri
 
 /-- info: "https://example.com/a/c?x#y" -/
