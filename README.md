@@ -1,5 +1,10 @@
 # LeanUri
 
+
+![Build/Proof Check](https://github.com/josephmckinsey/lean-uri/actions/workflows/lean_action_ci.yml/badge.svg) ![Docs/Blueprint](https://github.com/josephmckinsey/lean-uri/actions/workflows/docs.yml/badge.svg)
+
+[Docs](https://josephmckinsey.github.io/lean-uri/LeanUri/Basic.html)
+
 Lean 4 library for RFC 3986 URIs: parse, print, normalize, and resolve.
 
 - Parse absolute `URI` and relative version `RelativeRef` (no normalization)
