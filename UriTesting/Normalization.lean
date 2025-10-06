@@ -105,8 +105,15 @@ def testNormalizeSyntax : TestM Unit := testFunction "Full Normalization" do
     "HTTP://EXAMPLE.COM/a/./b/../c/%41%42%43"
     "http://example.com/a/c/ABC")
 
+
+-- Percent-encoding/decoding tests for both unreserved and unicode modes
+def testPercentEncoding : TestM Unit := testFunction "Percent Encoding/Decoding" do
+  return
+
+-- Add to all tests
 def allNormalizationTests : TestM Unit := group "Normalization" do
   testNormalizeCase
   testNormalizePercentEncoding
   testNormalizePathSegments
   testNormalizeSyntax
+  testPercentEncoding

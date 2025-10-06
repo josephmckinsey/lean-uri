@@ -3,33 +3,6 @@ import LeanUri.Parsers
 
 namespace LeanUri.Internal
 
-/-! ## Normalization (RFC 3986 Section 6.2) -/
-
-/-- Convert a hexadecimal character to its numeric value.
-    Assumes input is a valid HEXDIG (produced by the parser). -/
-def hexCharToNat (c : Char) : Nat :=
-  if '0' ≤ c && c ≤ '9' then
-    c.toNat - '0'.toNat
-  else if 'A' ≤ c && c ≤ 'F' then
-    c.toNat - 'A'.toNat + 10
-  else
-    -- assume lowercase hex
-    c.toNat - 'a'.toNat + 10
-
-/-- Convert a natural number (0-15) to uppercase hexadecimal character -/
-def natToHexChar (n : Nat) : Char :=
-  if n < 10 then
-    Char.ofNat ('0'.toNat + n)
-  else
-    Char.ofNat ('A'.toNat + (n - 10))
-
-/-- Decode a percent-encoded triplet to its character value.
-    Assumes both hex digits are valid. -/
-def decodePercentEncoded (h1 h2 : Char) : Char :=
-  let v1 := hexCharToNat h1
-  let v2 := hexCharToNat h2
-  Char.ofNat (v1 * 16 + v2)
-
 /-! ### 6.2.2.1 Case Normalization -/
 
 /-- Uppercase hexadecimal digits in percent-encodings only -/
@@ -39,7 +12,7 @@ partial def uppercasePercentHex (s : String) (acc : String := "") : String :=
   else if s.startsWith "%" && s.length ≥ 3 then
     let h1 := s.get ⟨1⟩
     let h2 := s.get ⟨2⟩
-    let normalized := "%" ++ (natToHexChar (hexCharToNat h1)).toString ++ (natToHexChar (hexCharToNat h2)).toString
+    let normalized := s!"%{h1.toUpper}{h2.toUpper}"
     uppercasePercentHex (s.drop 3) (acc ++ normalized)
   else
     uppercasePercentHex (s.drop 1) (acc ++ (s.get ⟨0⟩).toString)
@@ -123,31 +96,17 @@ def normalizeCase (uri : URI) : URI :=
 
 /-! ### 6.2.2.2 Percent-Encoding Normalization -/
 
-/-- Decode percent-encoded unreserved characters. Assumes percent triplets are valid. -/
-partial def decodeUnreserved (s : String) (acc : String := "") : String :=
-  if s.isEmpty then
-    acc
-  else if s.startsWith "%" && s.length ≥ 3 then
-    let h1 := s.get ⟨1⟩
-    let h2 := s.get ⟨2⟩
-    let c := decodePercentEncoded h1 h2
-    if isUnreserved c then
-      decodeUnreserved (s.drop 3) (acc ++ c.toString)
-    else
-      -- Keep original percent-encoding (without changing case here)
-      decodeUnreserved (s.drop 3) (acc ++ "%" ++ h1.toString ++ h2.toString)
-  else
-    decodeUnreserved (s.drop 1) (acc ++ (s.get ⟨0⟩).toString)
+
 
 /-- Percent-encoding normalization according to RFC 3986 Section 6.2.2.2.
     Decodes percent-encoded octets that correspond to unreserved characters. -/
 def normalizePercentEncoding (uri : URI) : URI :=
   {
     scheme := uri.scheme
-    authority := uri.authority.map decodeUnreserved
-    path := decodeUnreserved uri.path
-    query := uri.query.map decodeUnreserved
-    fragment := uri.fragment.map decodeUnreserved
+    authority := uri.authority.map (pctNormalize isUnreserved),
+    path := pctNormalize isUnreserved uri.path
+    query := uri.query.map (pctNormalize isQueryOrFragmentChar)
+    fragment := uri.fragment.map (pctNormalize  isQueryOrFragmentChar)
   }
 
 /-! ### 6.2.2.3 Path Segment Normalization -/
