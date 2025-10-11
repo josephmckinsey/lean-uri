@@ -56,8 +56,8 @@ Add LeanUri as a dependency to your `lakefile.toml`:
 
 ```toml
 [[require]]
-scope = "josephmckinsey"
 name = "lean-uri"
+git = "https://github.com/josephmckinsey/lean-uri"
 rev = "main"
 ```
 
