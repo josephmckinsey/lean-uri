@@ -150,9 +150,9 @@ def scheme : Parser String := do
 
 /-- URI = scheme ":" hier-part [ "?" query ] [ "#" fragment ] -/
 def uri : Parser URI := do
-  let schemePart ← scheme
-  skipChar ':'
-  let (auth, pathPart) ← hierPart
+  let schemePart ← scheme <|> .fail "Could not parse scheme"
+  skipChar ':' <|> .fail "Could not find : in path"
+  let (auth, pathPart) ← hierPart <|> .fail "Could not find authority and path"
   let queryPart ← (attempt (skipChar '?' *> query >>= fun q => pure (some q))) <|> pure none
   let fragPart ← (attempt (skipChar '#' *> fragment >>= fun f => pure (some f))) <|> pure none
   return {

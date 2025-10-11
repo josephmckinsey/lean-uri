@@ -25,7 +25,10 @@ structure URI where
   query : Option String := none
   -- Optional fragment component without the leading `#`.
   fragment : Option String := none
-deriving Repr, BEq
+deriving Repr, BEq, Hashable
+
+instance : Inhabited URI where
+  default := { scheme := "data", path := "" }
 
 /-- A relative reference per RFC 3986 (i.e., no scheme).
 
@@ -39,7 +42,7 @@ structure RelativeRef where
   query : Option String
   -- Optional fragment component without the leading `#`.
   fragment : Option String
-  deriving Repr, BEq
+deriving Inhabited, Repr, BEq, Hashable
 
 /-- Drop the scheme of a `URI` and convert it to a `RelativeRef`,
 keeping all other components unchanged. -/

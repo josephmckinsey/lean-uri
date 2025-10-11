@@ -63,7 +63,7 @@ open LeanUri
 ```
 -/
 @[inline]
-def parseReference : String → Except String (Sum URI RelativeRef) :=
+def parseReference : String → Except String (URI ⊕ RelativeRef) :=
   Internal.uriReference.run
 
 /-- Serialize a `URI` to a string without applying any normalization.
@@ -108,6 +108,19 @@ URI.normalize u |>.toString = "http://example.com/a/c"
 @[inline]
 def URI.normalize : URI → URI := Internal.normalizeAll
 
+/-- Resolve a reference or relative ref against a base `URI`.
+
+- If `reference` is an absolute URI, it is returned as-is.
+- If `reference` is a relative reference, it is resolved against `baseUri` using `Internal.resolve`.
+- Returns `.error msg` when `reference` cannot be parsed as a URI or relative reference.
+
+See `URI.resolve` or `URI.resolveRef` as well.
+-/
+def URI.resolveURIorRef (baseUri : URI) (reference : URI ⊕ RelativeRef) : URI :=
+  match reference with
+  | Sum.inl absoluteUri => absoluteUri
+  | Sum.inr relRef => Internal.resolve baseUri relRef
+
 /-- Resolve a string reference against a base `URI`.
 
 - If `reference` is an absolute URI, it is returned as-is.
@@ -123,8 +136,7 @@ URI.resolve base "../x" = .ok { scheme := "https", authority := some "example.co
 -/
 def URI.resolve (baseUri : URI) (reference : String) : Except String URI :=
   match Internal.uriReference.run reference with
-  | .ok (Sum.inl absoluteUri) => .ok absoluteUri
-  | .ok (Sum.inr relRef) => .ok (Internal.resolve baseUri relRef)
+  | .ok sum => .ok (baseUri.resolveURIorRef sum)
   | .error e => .error e
 
 /-- Resolve a pre-parsed `RelativeRef` against a base `URI`.
