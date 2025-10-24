@@ -33,10 +33,13 @@ info: Except.ok { authority := none, path := "/foo/bar", query := some "x", frag
 def testURIParse : TestM Unit := testFunction "URI.parse" do
   testEq "parse simple URI" (URI.parse "http://a/b?c#d").isOk true
   testEq "parse invalid URI" (URI.parse "not a uri").isOk false
+  testEq "parse invalid URI" (URI.parse "notauri://a/b?c#d<T>").isOk false
+
 
 def testRelativeRefParse : TestM Unit := testFunction "RelativeRef.parse" do
   testEq "parse simple relative" (RelativeRef.parse "/foo/bar?x#y").isOk true
-  testEq "parse weird relative" (RelativeRef.parse ":bad").isOk true
+  testEq "parse weird relative" (RelativeRef.parse "#:bad").isOk true
+  testEq "parse weird relative" (RelativeRef.parse ":bad").isOk false
 
 def testParseReference : TestM Unit := testFunction "parseReference" do
   testEq "parseReference absolute" (parseReference "mailto:user@example.com").isOk true

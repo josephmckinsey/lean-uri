@@ -155,6 +155,7 @@ def uri : Parser URI := do
   let (auth, pathPart) ← hierPart <|> .fail "Could not find authority and path"
   let queryPart ← (attempt (skipChar '?' *> query >>= fun q => pure (some q))) <|> pure none
   let fragPart ← (attempt (skipChar '#' *> fragment >>= fun f => pure (some f))) <|> pure none
+  eof
   return {
     scheme := schemePart
     authority := auth
@@ -185,6 +186,7 @@ def relativeRef : Parser RelativeRef := do
   let (auth, pathPart) ← relativePart
   let queryPart ← (attempt (skipChar '?' *> query >>= fun q => pure (some q))) <|> pure none
   let fragPart ← (attempt (skipChar '#' *> fragment >>= fun f => pure (some f))) <|> pure none
+  eof
   return {
     authority := auth
     path := pathPart
