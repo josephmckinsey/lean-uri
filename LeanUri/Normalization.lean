@@ -10,12 +10,12 @@ partial def uppercasePercentHex (s : String) (acc : String := "") : String :=
   if s.isEmpty then
     acc
   else if s.startsWith "%" && s.length ≥ 3 then
-    let h1 := s.get ⟨1⟩
-    let h2 := s.get ⟨2⟩
+    let h1 := String.Pos.Raw.get s ⟨1⟩
+    let h2 := String.Pos.Raw.get s ⟨2⟩
     let normalized := s!"%{h1.toUpper}{h2.toUpper}"
     uppercasePercentHex (s.drop 3) (acc ++ normalized)
   else
-    uppercasePercentHex (s.drop 1) (acc ++ (s.get ⟨0⟩).toString)
+    uppercasePercentHex (s.drop 1) (acc ++ (String.Pos.Raw.get s ⟨0⟩).toString)
 
 /-- Normalize the case of a scheme (lowercase) -/
 def normalizeSchemeLower (scheme : String) : String :=
@@ -28,7 +28,7 @@ def normalizeHostLower (host : String) : String :=
     -- IPv6 literal - uppercase only hex digits, keep brackets and colons as-is
     let chars := host.toList.map fun c =>
       if isHexDigit c && isAlpha c then c.toUpper else c
-    String.mk chars
+    String.ofList chars
   else
     -- reg-name or IPv4 - lowercase
     host.toLower

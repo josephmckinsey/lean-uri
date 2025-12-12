@@ -182,7 +182,7 @@ def pctDecode (s : String) : Except String String :=
 -/
 def pctEncode (allowed : Char → Bool) (s : String) : String := Id.run do
   let mut acc := ""
-  let mut charIter := s.iter
+  let mut charIter := String.Legacy.iter s
   while h : charIter.hasNext do
     let c := charIter.curr' h
     if allowed c then
