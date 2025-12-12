@@ -177,19 +177,13 @@ def pctDecode (s : String) : Except String String :=
     | .none => .error "Could not decode UTF8 string"
   | .error msg => .error msg
 
--- I gave up and wrote this one iteratively. This can probaly be a parser run
 /-- Encode all allowed chars in a string to percent encoded bytes
 -/
-def pctEncode (allowed : Char → Bool) (s : String) : String := Id.run do
-  let mut acc := ""
-  let mut charIter := String.Legacy.iter s
-  while h : charIter.hasNext do
-    let c := charIter.curr' h
+def pctEncode (allowed : Char → Bool) (s : String) : String :=
+  s.foldl (fun acc c =>
     if allowed c then
-      acc := acc.push c
+      acc.push c
     else
-      acc := acc.append (Internal.pctEncodeChar c)
-    charIter := charIter.next
-  return acc
+      acc.append (Internal.pctEncodeChar c)) ""
 
 end LeanUri
