@@ -8,6 +8,14 @@ open Testing
 
 /-! ## Parsing Tests -/
 
+def testHexConversion : TestM Unit := testFunction "Hex Conversion" do
+  testEq "hex 0" (uInt8toOneHexChar 0) '0'
+  testEq "hex 9" (uInt8toOneHexChar 9) '9'
+  testEq "hex 10 (A)" (uInt8toOneHexChar 10) 'A'
+  testEq "hex 15 (F)" (uInt8toOneHexChar 15) 'F'
+  testEq "byte 0" (uInt8ToHexChars 0) "%00"
+  testEq "byte 255" (uInt8ToHexChars 255) "%FF"
+
 def testPctEncoded : TestM Unit := testFunction "Percent Encodings" do
   test "percent space" (testParser pctEncoded "%20" "%20")
   test "percent A" (testParser pctEncoded "%41" "%41")
