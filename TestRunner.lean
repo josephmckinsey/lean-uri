@@ -10,6 +10,7 @@ def main (args : List String) : IO Unit := do
 
   Testing.TestM.run (filter := filter) do
     Testing.group "Parsing Tests" do
+      testHexConversion
       testPctEncoded
       testScheme
       testDecOctet

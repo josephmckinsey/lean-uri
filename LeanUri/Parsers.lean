@@ -98,7 +98,7 @@ def uInt8toOneHexChar (x : UInt8) : Char :=
   if x < 10 then
     Char.ofUInt8 (x + '0'.toUInt8)
   else if x < 16 then
-    Char.ofUInt8 (x + 'A'.toUInt8)
+    Char.ofUInt8 (x - 10 + 'A'.toUInt8)
   else
     Char.ofUInt8 0
 
