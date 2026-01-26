@@ -196,7 +196,7 @@ def relativeRef : Parser RelativeRef := do
 
 /-! ## Reference Resolution (RFC 3986 Section 5.2) -/
 
-partial def removeDotSegments (input : String) (output : String := "") : String :=
+partial def removeDotSegments (input : String.Slice) (output : String := "") : String :=
   if input.isEmpty then
     output
   else if input.startsWith "../" then
@@ -204,31 +204,31 @@ partial def removeDotSegments (input : String) (output : String := "") : String 
   else if input.startsWith "./" then
     removeDotSegments (input.drop 2) output
   else if input.startsWith "/./" then
-    removeDotSegments ("/" ++ input.drop 3) output
+    removeDotSegments ("/" ++ (input.drop 3).toString) output
   else if input == "/." then
     removeDotSegments "/" output
   else if input.startsWith "/../" then
-    let lastSlash := output.dropRightWhile (· != '/')
-    let newOutput := if lastSlash.isEmpty then "" else lastSlash.dropRight 1
-    removeDotSegments ("/" ++ input.drop 4) newOutput
+    let lastSlash := output.dropEndWhile (· != '/')
+    let newOutput := if lastSlash.isEmpty then "" else (lastSlash.dropEnd 1).toString
+    removeDotSegments ("/" ++ (input.drop 4).toString) newOutput
   else if input == "/.." then
-    let lastSlash := output.dropRightWhile (· != '/')
-    let newOutput := if lastSlash.isEmpty then "" else lastSlash.dropRight 1
+    let lastSlash := output.dropEndWhile (· != '/')
+    let newOutput := if lastSlash.isEmpty then "" else (lastSlash.dropEnd 1).toString
     removeDotSegments "/" newOutput
   else if input == "." || input == ".." then
     ""
   else
     let afterFirst := input.drop 1
     let charsUntilSlash := afterFirst.takeWhile (· != '/')
-    let segmentEnd := charsUntilSlash.length + 1
-    let segment := input.take segmentEnd
+    let segmentEnd := charsUntilSlash.positions.count + 1
+    let segment := (input.take segmentEnd).toString
     removeDotSegments (input.drop segmentEnd) (output ++ segment)
 
 def mergePaths (basePath : String) (refPath : String) (baseHasAuth : Bool) : String :=
   if baseHasAuth && basePath.isEmpty then
     "/" ++ refPath
   else
-    let baseDir := basePath.dropRightWhile (· != '/')
+    let baseDir := (basePath.dropEndWhile (· != '/')).toString
     baseDir ++ refPath
 
 def resolve (base : URI) (ref : RelativeRef) : URI :=

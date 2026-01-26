@@ -6,16 +6,22 @@ namespace LeanUri.Internal
 /-! ### 6.2.2.1 Case Normalization -/
 
 /-- Uppercase hexadecimal digits in percent-encodings only -/
-partial def uppercasePercentHex (s : String) (acc : String := "") : String :=
+partial def uppercasePercentHex (s : String.Slice) (acc : String := "") : String :=
   if s.isEmpty then
     acc
-  else if s.startsWith "%" && s.length ≥ 3 then
-    let h1 := String.Pos.Raw.get s ⟨1⟩
-    let h2 := String.Pos.Raw.get s ⟨2⟩
-    let normalized := s!"%{h1.toUpper}{h2.toUpper}"
-    uppercasePercentHex (s.drop 3) (acc ++ normalized)
   else
-    uppercasePercentHex (s.drop 1) (acc ++ (String.Pos.Raw.get s ⟨0⟩).toString)
+    let percent := s.take 3
+    let rest := s.drop 3
+    -- I have no idea what the ergonomic solution here is
+    if percent.front == '%' && percent.positions.count == 3 then
+      let percent := percent.drop 1
+      let h1 := percent.front
+      let percent := percent.drop 1
+      let h2 := percent.front
+      let normalized := s!"%{h1.toUpper}{h2.toUpper}"
+      uppercasePercentHex rest (acc ++ normalized)
+    else
+      uppercasePercentHex (s.drop 1) (acc.push s.front)
 
 /-- Normalize the case of a scheme (lowercase) -/
 def normalizeSchemeLower (scheme : String) : String :=
